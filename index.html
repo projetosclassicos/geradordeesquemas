@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title></title>
+    <title>Sintaxe Geométrica</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
@@ -683,31 +683,29 @@ _δὲ_ (vrd)
             return `${nome}.${ext}`;
         }
 
-        function withResetTransform(callback) {
-            const oldTransform = workspace.style.transform;
-            const oldPosition = workspace.style.position;
-            const oldTop = workspace.style.top;
-            const oldLeft = workspace.style.left;
+ function withResetTransform(callback) {
+            // 1. Guardamos a sua perspectiva atual de trabalho
+            const oldScale = scale;
+            const oldTranslateX = translateX;
+            const oldTranslateY = translateY;
 
-            // Congelamento material rigoroso: fixar na origem para a biblioteca não se perder
-            workspace.style.transform = 'none';
-            workspace.style.position = 'absolute';
-            workspace.style.top = '0';
-            workspace.style.left = '0';
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform(); // Aplica rigorosamente o estado puro ao DOM
             
-            // Forçamos o recálculo estrito das linhas com a tela "limpa" de abstrações espaciais
             drawAllLines(true); 
 
             setTimeout(() => {
                 callback(() => {
-                    // Restauração da Ordem (Taxis)
-                    workspace.style.position = oldPosition;
-                    workspace.style.top = oldTop;
-                    workspace.style.left = oldLeft;
-                    workspace.style.transform = oldTransform;
+                    // 5. Após a "fotografia", restauramos a ordem (Taxis) para a sua posição exata
+                    scale = oldScale;
+                    translateX = oldTranslateX;
+                    translateY = oldTranslateY;
+                    updateTransform();
                     drawAllLines(false);
                 });
-            }, 100);
+            }, 350);
         }
 
         function exportToPNG() {
