@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title></title>
+    <title>Sintaxe Geométrica</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
@@ -210,7 +210,7 @@
             <div class="syntax-section">
                 <p><span class="hl">3. Cores:</span></p>
                 <p><b>Nativas:</b> <code>(vrm)</code>, <code>(ama)</code>, <code>(azu)</code>, <code>(cia)</code>, <code>(rox)</code>, <code>(ros)</code>, <code>(vd)</code>, <code>(brc)</code></p>
-                <p><b>Dinâmicas:</b> <code>cor:#HEX (sigla)</code> <br>
+                <p><b>Dinâmicas:</b> <code>//cor:#HEX (sigla)</code> <br>
                 <i>Dê um duplo-clique sobre o HEX no texto para abrir a paleta.</i></p>
             </div>
 
@@ -545,7 +545,7 @@ _δὲ_ (vrd)
 
             const svg = document.getElementById('svg-layer');
             const workspaceRect = workspace.getBoundingClientRect();
-            
+
             svg.style.width = workspace.scrollWidth + 'px';
             svg.style.height = workspace.scrollHeight + 'px';
             svg.setAttribute('width', workspace.scrollWidth);
@@ -674,22 +674,36 @@ _δὲ_ (vrd)
             setTimeout(drawAllLines, 150); 
         }
 
+        // Função auxiliar para extrair o título e purificá-lo para nome de arquivo
+        function getFilename(ext) {
+            let nome = document.getElementById('cabecalho-input').value.trim();
+            if (!nome) nome = 'esquema_sintatico';
+            // Substitui caracteres inválidos para sistemas operacionais, preservando o alfabeto Grego
+            nome = nome.replace(/[\\/:*?"<>|]/g, '-').substring(0, 80);
+            return `${nome}.${ext}`;
+        }
+
         function withResetTransform(callback) {
             const oldTransform = workspace.style.transform;
-            const oldWidth = workspace.style.width;
-            const oldHeight = workspace.style.height;
-            
-            workspace.style.transform = 'none';
-            workspace.style.width = workspace.scrollWidth + 'px';
-            workspace.style.height = workspace.scrollHeight + 'px';
-            void workspace.offsetHeight; 
+            const oldPosition = workspace.style.position;
+            const oldTop = workspace.style.top;
+            const oldLeft = workspace.style.left;
 
+            // Congelamento material rigoroso: fixar na origem para a biblioteca não se perder
+            workspace.style.transform = 'none';
+            workspace.style.position = 'absolute';
+            workspace.style.top = '0';
+            workspace.style.left = '0';
+            
+            // Forçamos o recálculo estrito das linhas com a tela "limpa" de abstrações espaciais
             drawAllLines(true); 
 
             setTimeout(() => {
                 callback(() => {
-                    workspace.style.width = oldWidth;
-                    workspace.style.height = oldHeight;
+                    // Restauração da Ordem (Taxis)
+                    workspace.style.position = oldPosition;
+                    workspace.style.top = oldTop;
+                    workspace.style.left = oldLeft;
                     workspace.style.transform = oldTransform;
                     drawAllLines(false);
                 });
@@ -700,8 +714,9 @@ _δὲ_ (vrd)
             withResetTransform((restore) => {
                 html2canvas(document.getElementById('workspace'), { backgroundColor: null, scale: 2 }).then(canvas => {
                     const link = document.createElement('a');
-                    link.download = 'arvore_sintatica_transparente.png';
-                    link.href = canvas.toDataURL('image/png'); link.click();
+                    link.download = getFilename('png');
+                    link.href = canvas.toDataURL('image/png'); 
+                    link.click();
                     restore();
                 });
             });
@@ -711,8 +726,9 @@ _δὲ_ (vrd)
             withResetTransform((restore) => {
                 html2canvas(document.getElementById('workspace'), { backgroundColor: '#000000', scale: 2 }).then(canvas => {
                     const link = document.createElement('a');
-                    link.download = 'arvore_sintatica_fundo_preto.jpg';
-                    link.href = canvas.toDataURL('image/jpeg', 0.9); link.click();
+                    link.download = getFilename('jpg');
+                    link.href = canvas.toDataURL('image/jpeg', 0.9); 
+                    link.click();
                     restore();
                 });
             });
