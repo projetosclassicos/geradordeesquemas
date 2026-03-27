@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <title></title>
@@ -90,15 +90,14 @@
         button.export.btn-jpg { background-color: #c4b5a3; } 
         button.export.btn-jpg:hover { background-color: #b0a08d; }
 
+        /* Nova abordagem metodológica: Permitir rolagem natural (scroll) em vez de zoom artificial */
         #workspace-wrapper {
-            flex-grow: 1; overflow: hidden; position: relative; background-color: var(--bg-color);
-            cursor: default; 
+            flex-grow: 1; overflow: auto; position: relative; background-color: var(--bg-color);
         }
 
         #workspace {
             min-width: 100%; min-height: 100%; padding: 40px; box-sizing: border-box;
             display: inline-block; position: relative;
-            transform-origin: center top; transition: transform 0.05s linear;
         }
 
         #cabecalho-display {
@@ -183,13 +182,13 @@
 
     <div id="editor-panel">
         <div id="editor-header">
-            <strong>Sintaxe Geométrica</strong>
+            <strong>Gerador</strong>
             <div id="info-btn" onclick="toggleModal()">?</div>
         </div>
         
         <div id="syntax-modal">
             <span class="close-btn" onclick="toggleModal()">X</span>
-            <h3>Guia de Sintaxe Geométrica</h3>
+            <h3>Guia</h3>
             
             <div class="syntax-section">
                 <p><span class="hl">1. Conexões e Hierarquia:</span></p>
@@ -225,8 +224,7 @@
             <div class="syntax-section">
                 <p><span class="hl">5. Navegação e Alinhamento:</span></p>
                 <p>Alinhamento: <code>//alinhar:esquerda</code> (ou <code>direita</code>, <code>centro</code>)</p>
-                <p><b>Scroll do Rato:</b> Zoom (Aproximar/Afastar)</p>
-                <p><b>Botão Direito (Segurar/Arrastar):</b> Mover pelo ecrã</p>
+                <p><b>Navegação:</b> Use as barras de rolagem nativas para se mover por esquemas extensos.</p>
             </div>
         </div>
 
@@ -289,50 +287,8 @@ _δὲ_ (vrd)
         let dynamicColors = {};
         let currentAlignment = 'centro';
 
-        let scale = 1;
-        let isDragging = false;
-        let startX, startY;
-        let translateX = 0, translateY = 0;
         const workspaceWrapper = document.getElementById('workspace-wrapper');
         const workspace = document.getElementById('workspace');
-
-        function updateTransform() {
-            workspace.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-        }
-
-        workspaceWrapper.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const scaleAmount = 0.05;
-            if (e.deltaY < 0) scale += scaleAmount;
-            else scale -= scaleAmount;
-            scale = Math.max(0.3, Math.min(scale, 3)); 
-            updateTransform();
-        });
-
-        workspaceWrapper.addEventListener('mousedown', (e) => {
-            if (e.button === 2) { 
-                isDragging = true;
-                startX = e.clientX - translateX;
-                startY = e.clientY - translateY;
-                workspaceWrapper.style.cursor = 'grabbing';
-            }
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            translateX = e.clientX - startX;
-            translateY = e.clientY - startY;
-            updateTransform();
-        });
-
-        window.addEventListener('mouseup', (e) => {
-            if (e.button === 2) {
-                isDragging = false;
-                workspaceWrapper.style.cursor = 'default';
-            }
-        });
-
-        workspaceWrapper.addEventListener('contextmenu', e => e.preventDefault());
 
         function toggleModal() {
             const modal = document.getElementById('syntax-modal');
@@ -535,12 +491,9 @@ _δὲ_ (vrd)
             return html;
         }
 
-        function drawAllLines(keepReset = false) {
+        function drawAllLines() {
             if (!window.currentTreeData) return;
             
-            const oldTransform = workspace.style.transform;
-            workspace.style.transform = 'none';
-
             void workspace.offsetHeight; 
 
             const svg = document.getElementById('svg-layer');
@@ -655,8 +608,6 @@ _δὲ_ (vrd)
                     svg.appendChild(path);
                 }
             });
-
-            if(!keepReset) workspace.style.transform = oldTransform;
         }
 
         function renderTree() {
@@ -674,62 +625,29 @@ _δὲ_ (vrd)
             setTimeout(drawAllLines, 150); 
         }
 
-        // Função auxiliar para extrair o título e purificá-lo para nome de ficheiro
         function getFilename(ext) {
             let nome = document.getElementById('cabecalho-input').value.trim();
             if (!nome) nome = 'esquema_sintatico';
-            // Substitui caracteres inválidos, preservando o alfabeto Grego
             nome = nome.replace(/[\\/:*?"<>|]/g, '-').substring(0, 80);
             return `${nome}.${ext}`;
         }
 
-        function exportWithCleanState(exportCallback) {
-            window.scrollTo(0, 0);
-
-            const oldScale = scale;
-            const oldX = translateX;
-            const oldY = translateY;
-
-    
-            scale = 1;
-            translateX = 0;
-            translateY = 0;
-            updateTransform();
-            
-            renderTree();
-
-            setTimeout(() => {
-                exportCallback(() => {
-                    scale = oldScale;
-                    translateX = oldX;
-                    translateY = oldY;
-                    updateTransform();
-                    drawAllLines(false);
-                });
-            }, 800);
-        }
-
+        // Funções de exportação agora agem diretamente sobre a matéria estabilizada
         function exportToPNG() {
-            exportWithCleanState((restore) => {
-                html2canvas(document.getElementById('workspace'), { backgroundColor: null, scale: 2 }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = getFilename('png');
-                    link.href = canvas.toDataURL('image/png'); 
-                    link.click();
-                    restore();
-                });
+            html2canvas(document.getElementById('workspace'), { backgroundColor: null, scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = getFilename('png');
+                link.href = canvas.toDataURL('image/png'); 
+                link.click();
             });
         }
 
         function exportToJPG() {
-            exportWithCleanState((restore) => {
-                html2canvas(document.getElementById('workspace'), { backgroundColor: '#000000', scale: 2 }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = getFilename('jpg');
-                    link.href = canvas.toDataURL('image/jpeg', 0.9); 
-                    link.click();
-                    restore();
-                });
+            html2canvas(document.getElementById('workspace'), { backgroundColor: '#000000', scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = getFilename('jpg');
+                link.href = canvas.toDataURL('image/jpeg', 0.9); 
+                link.click();
             });
         }
 
@@ -744,7 +662,7 @@ _δὲ_ (vrd)
             document.getElementById('code-input').addEventListener('input', renderizacaoContinua);
             document.getElementById('cabecalho-input').addEventListener('input', renderizacaoContinua);
         };
-        window.addEventListener('resize', () => drawAllLines(false));
+        window.addEventListener('resize', drawAllLines);
     </script>
 </body>
 </html>
