@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Gerador de Árvore</title>
+    <title>Gerador de Gráfico</title>
+    <link rel="icon" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 32 32'%3e%3cpath fill='%23EDCC0E' d='M28.768 8.818 23.182 3.23a2.5 2.5 0 0 0-3.537 0L4.233 18.646a2.48 2.48 0 0 0-.733 1.768V26A2.5 2.5 0 0 0 6 28.5h5.586a2.48 2.48 0 0 0 1.768-.733l15.414-15.414a2.5 2.5 0 0 0 0-3.535M11.624 22.5l8.875-8.875L21.875 15 13 23.875zM9.5 20.375 8.125 19 17 10.125l1.375 1.375zm-3 1.25 1.939 1.939 1.936 1.936H6.5zm17.5-8.75L19.125 8l2.293-2.293 4.875 4.876z'/%3e%3c/svg%3e" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
@@ -16,10 +17,12 @@
             --cor-azu: #3498db;  
             --cor-cia: #00ffff;  
             --cor-rox: #9b59b6;  
-            --cor-vd:  #2ecc71;  
+            --cor-vrd:  #2ecc71;  
             --cor-ros: #e84393;  
             --cor-brc: #ffffff;  
-            --line-default: #888888; 
+            --line-default: #888888;
+            --node-padding: 10px;     /* Eixo X */
+            --node-spacing-y: 22px;   /* Eixo Y */
         }
         
         body {
@@ -55,13 +58,30 @@
             align-items: center;
         }
 
-        #info-btn {
-            background-color: transparent; color: var(--cor-ama); border: 1px solid var(--cor-ama);
-            border-radius: 50%; width: 24px; height: 24px; display: flex;
-            justify-content: center; align-items: center; cursor: pointer;
-            font-weight: bold; transition: 0.2s;
+        .header-actions {
+            display: flex; gap: 8px; align-items: center; position: relative;
         }
-        #info-btn:hover { background-color: var(--cor-ama); color: #000; }
+
+        .action-btn {
+            background-color: transparent; border: 1px solid var(--cor-ama); color: var(--cor-ama);
+            border-radius: 4px; width: 28px; height: 28px; display: flex;
+            justify-content: center; align-items: center; cursor: pointer; transition: 0.2s;
+        }
+        .action-btn:hover { background-color: var(--cor-ama); color: #000; }
+        .action-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+        #export-menu {
+            display: none; position: absolute; top: 35px; right: 0;
+            background: #222; border: 1px solid #444; border-radius: 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 100; flex-direction: column;
+            min-width: 170px; overflow: hidden;
+        }
+        #export-menu div {
+            padding: 10px 15px; cursor: pointer; font-size: 13px; color: #ccc;
+            font-family: 'EB Garamond', serif; border-bottom: 1px solid #333;
+        }
+        #export-menu div:last-child { border-bottom: none; }
+        #export-menu div:hover { background: #333; color: #fff; }
 
         .input-box { padding: 10px 15px; border-bottom: 1px solid #333; }
         .input-box input {
@@ -76,33 +96,22 @@
             line-height: 1.5; box-sizing: border-box; white-space: pre;
         }
 
-        .btn-container { display: flex; flex-direction: row; border-top: 1px solid #333; }
-        
-        button.export {
-            flex: 1; padding: 14px 5px; color: #1a1a1a; border: none; border-right: 1px solid #b3a384;
-            font-size: 12px; font-weight: bold; font-family: 'EB Garamond', serif; cursor: pointer; 
-            transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        button.export:last-child { border-right: none; }
-        
-        button.export.btn-png { background-color: #d8caba; } 
-        button.export.btn-png:hover { background-color: #c4b5a3; }
-        button.export.btn-jpg { background-color: #c4b5a3; } 
-        button.export.btn-jpg:hover { background-color: #b0a08d; }
-
-        /* Nova abordagem metodológica: Permitir rolagem natural (scroll) em vez de zoom artificial */
         #workspace-wrapper {
             flex-grow: 1; overflow: auto; position: relative; background-color: var(--bg-color);
         }
 
         #workspace {
-            min-width: 100%; min-height: 100%; padding: 40px; box-sizing: border-box;
-            display: inline-block; position: relative;
+            min-width: 100%; min-height: 100%; box-sizing: border-box;
+            display: flex; align-items: flex-start; justify-content: flex-start;
         }
 
-        #cabecalho-display {
-            text-align: center; font-size: 24px; font-style: italic; color: #fff;
-            margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #333; min-height: 30px;
+        #export-target {
+            display: inline-block; position: relative; padding: 40px; min-width: max-content;
+        }
+
+         #cabecalho-display {
+            text-align: center; font-size: 18px; font-style: normal; color: #00574D;
+            margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #333; min-height: 20px;
         }
 
         #svg-layer {
@@ -112,7 +121,8 @@
         .tree { display: flex; justify-content: center; }
         
         .tree ul {
-            padding-top: 22px; position: relative; display: flex; justify-content: center; 
+            padding-top: var(--node-spacing-y); 
+            position: relative; display: flex; justify-content: center; 
             align-items: flex-start; padding-left: 0; margin: 0;
         }
 
@@ -123,13 +133,17 @@
         .tree.align-centro ul { justify-content: center; }
         .tree.align-centro li { align-items: center; }
 
-        .tree li { position: relative; padding: 0 10px; display: flex; flex-direction: column; list-style-type: none; }
+        .tree li { position: relative; padding: 0 var(--node-padding); display: flex; flex-direction: column; list-style-type: none; }
         .node, .box-wrapper { position: relative; z-index: 2; }
         .node { padding: 2px 4px; font-size: 17px; text-align: center; white-space: nowrap; }
 
-        .node-box {
-            border: 1px solid; border-radius: 4px; padding: 2px 6px;
-            display: inline-block; min-width: 10px; min-height: 18px; background-color: transparent; 
+        .node { 
+            padding: 2px 6px;
+            font-size: 17px; 
+            text-align: center; 
+            white-space: nowrap;
+            background-color: var(--bg-color);
+            z-index: 5; 
         }
 
         .cat-verm { color: var(--cor-verm); }
@@ -137,7 +151,7 @@
         .cat-azu  { color: var(--cor-azu); }
         .cat-cia  { color: var(--cor-cia); }
         .cat-rox  { color: var(--cor-rox); }
-        .cat-vd   { color: var(--cor-vd); }
+        .cat-vrd   { color: var(--cor-vrd); }
         .cat-ros  { color: var(--cor-ros); }
         .cat-brc  { color: var(--cor-brc); }
 
@@ -162,7 +176,7 @@
         .box-amarelo  { border-color: var(--cor-ama); }
         .box-azul     { border-color: var(--cor-azu); }
         .box-vermelho { border-color: var(--cor-verm); }
-        .box-verde    { border-color: var(--cor-vd); }
+        .box-verde    { border-color: var(--cor-vrd); }
         .box-ciano    { border-color: var(--cor-cia); }
         .box-roxo     { border-color: var(--cor-rox); }
         .box-rosa     { border-color: var(--cor-ros); }
@@ -172,6 +186,7 @@
             background: #222; border: 1px solid #444; border-radius: 6px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.9); z-index: 100; padding: 15px;
             color: #e0e0e0; font-family: 'Courier New', Courier, monospace; font-size: 13px;
+            max-height: 80vh; overflow-y: auto;
         }
         #syntax-modal h3 { margin: 0 0 10px 0; font-family: 'EB Garamond', serif; color: var(--cor-ama); border-bottom: 1px solid #444; padding-bottom: 5px; }
         #syntax-modal .close-btn { position: absolute; top: 10px; right: 15px; cursor: pointer; color: #aaa; font-weight: bold; }
@@ -183,7 +198,19 @@
     <div id="editor-panel">
         <div id="editor-header">
             <strong></strong>
-            <div id="info-btn" onclick="toggleModal()">?</div>
+            <div class="header-actions">
+                <div class="action-btn" onclick="toggleModal()" title="Guia de Sintaxe">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                </div>
+                <div class="action-btn" onclick="toggleExportMenu()" title="Exportar Esquema" id="btn-export-main">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                </div>
+                <div id="export-menu">
+                    <div onclick="exportChart('jpg', '#000000')">Exportar JPG (Fundo Preto)</div>
+                    <div onclick="exportChart('png', '#000000')">Exportar PNG (Fundo Preto)</div>
+                    <div onclick="exportChart('png', null)">Exportar PNG (Transparente)</div>
+                </div>
+            </div>
         </div>
         
         <div id="syntax-modal">
@@ -191,40 +218,38 @@
             <h3>Guia</h3>
             
             <div class="syntax-section">
-                <p><span class="hl">1. Conexões e Hierarquia:</span></p>
-                <p><code>-</code> Linha invisível | <code>=</code> Linha visível</p>
-                <p><code>= (cor)</code> Linha colorida (ex: <code>= (vrm)</code>)</p>
+                <p><span class="hl">1. Hierarquia e Linhas:</span></p>
+                <p><code>-</code> Invisível | <code>=</code> Visível contínua</p>
+                <p><code>~</code> Visível tracejada | <code>= (cor)</code> Colorida</p>
             </div>
 
             <div class="syntax-section">
-                <p><span class="hl">2. Caixas (Agrupamentos):</span></p>
-                <p><i>Englobam os termos filhos:</i></p>
-                <p><code>[CI Título]{box-cor}</code> Título acima</p>
-                <p><code>[BA Título]{box-cor}</code> Título abaixo</p>
-                <p><code>[CI]{box-cor}</code> Compacta (sem título)</p>
-                <p><i>Apenas o nó individual:</i></p>
-                <p><code>[Texto]{box-cor}</code> Nó em caixa</p>
+                <p><span class="hl">2. Caixas:</span></p>
+                <p><code>[CI Título]{box-cor}</code> Caixa com título acima</p>
+                <p><code>[BA Título]{box-cor}</code> Caixa com título abaixo</p>
+                <p><code>[Palavra]{box-cor}</code> Caixa simples</p>
             </div>
 
             <div class="syntax-section">
                 <p><span class="hl">3. Cores:</span></p>
-                <p><b>Nativas:</b> <code>(vrm)</code>, <code>(ama)</code>, <code>(azu)</code>, <code>(cia)</code>, <code>(rox)</code>, <code>(ros)</code>, <code>(vd)</code>, <code>(brc)</code></p>
-                <p><b>Dinâmicas:</b> <code>//cor:#HEX (sigla)</code> <br>
-                <i>Dê um duplo-clique sobre o HEX no texto para abrir a paleta.</i></p>
+                <p><b>Nativas:</b> <code>(vrm)</code>, <code>(ama)</code>, <code>(azu)</code>, <code>(cia)</code>, <code>(rox)</code>, <code>(ros)</code>, <code>(vrd)</code>, <code>(brc)</code></p>
+                <p><b>Dinâmicas:</b> <code>//cor:#HEX (sigla)</code> </p>
             </div>
 
             <div class="syntax-section">
-                <p><span class="hl">4. Ligações Laterais e Formatação:</span></p>
-                <p><code>(#id)</code> Cria uma âncora no termo</p>
-                <p><code>(->id:cor)</code> Cria uma seta curva para a âncora</p>
-                <p><code>(-id:cor)</code> Cria uma linha pontilhada (sem seta)</p>
+                <p><span class="hl">4. Conexões (Setas):</span></p>
+                <p><code>(#id)</code> Cria uma tag invisível</p>
+                <p><code>(->id:cor)</code> Curva | <code>(-id:cor)</code> Curva simples</p>
+                <p><code>[->id:cor]</code> Reta </p>
+                <p><code>&lt;->id:cor&gt;</code> Reta direta</p>
+            </div>
+            
+            <div class="syntax-section">
+                <p><span class="hl">5. Controle Espacial:</span></p>
+                <p><code>//espaçox:+10</code> Ajusta o espaçamento horizontal</p>
+                <p><code>//espaçoy:-5</code> Ajusta o espaçamento vertical</p>
+                <p><code>//alinhar:esquerda</code> (centro, direita)</p>
                 <p><code>**Negrito**</code> | <code>*Itálico*</code> | <code>_Sublinhado_</code></p>
-            </div>
-
-            <div class="syntax-section">
-                <p><span class="hl">5. Navegação e Alinhamento:</span></p>
-                <p>Alinhamento: <code>//alinhar:esquerda</code> (ou <code>direita</code>, <code>centro</code>)</p>
-                <p><b>Navegação:</b> Use as barras de rolagem nativas para se mover por esquemas extensos.</p>
             </div>
         </div>
 
@@ -242,14 +267,14 @@ _δὲ_ (vrd)
 --- [CI]{box-amarelo}
 ---- ὡς (rox)
 ---- ἐβουλεύσατο (vrm)
-===== (cia) [Σωκράτης] (ama) (->soc:azulsafira)
------ περί (ama)
------ ἀπολογίας (ama)
+===== (cia) [Σωκράτης] (ama) [->soc:azulsafira]
+----- περί (ama) <-apo:verm>
+----- ἀπολογίας (ama) (#apo)
 ====== τῆς (azu)
 ===== (cia) τε... καὶ (ros)
------ (cia) τελευτῆς (ama)
+~~~~~ (cia) τελευτῆς (ama)
 ====== (cia) τῆς (azu)
-====== [CI]{box-azul}
+~~~~~~ [CI]{box-azul}
 ------- βίου (ama)
 ======== (cia) τοῦ
 ----- [CI]{box-branco}
@@ -259,20 +284,16 @@ _δὲ_ (vrd)
 ======= (cia) εἰς δίκην (ama)
 ======== (cia) τὴν (azu)
 = (cia) μοι (ama)
-
-//cor:#0F52BA (azulsafira)
         </textarea>
-        <div class="btn-container">
-            <button class="export btn-png" onclick="exportToPNG()">PNG (Transparente)</button>
-            <button class="export btn-jpg" onclick="exportToJPG()">JPG (Fundo Preto)</button>
-        </div>
     </div>
 
     <div id="workspace-wrapper">
         <div id="workspace">
-            <div id="cabecalho-display"></div>
-            <svg id="svg-layer"></svg>
-            <div class="tree align-centro" id="tree-container"></div>
+            <div id="export-target">
+                <div id="cabecalho-display"></div>
+                <svg id="svg-layer" xmlns="http://www.w3.org/2000/svg"></svg>
+                <div class="tree align-centro" id="tree-container"></div>
+            </div>
         </div>
     </div>
 
@@ -281,19 +302,29 @@ _δὲ_ (vrd)
     <script>
         const colorsDict = {
             'verm': '#ff3333', 'ama': '#f1c40f', 'azu': '#3498db',
-            'cia': '#00ffff', 'rox': '#9b59b6', 'vd': '#2ecc71',
+            'cia': '#00ffff', 'rox': '#9b59b6', 'vrd': '#2ecc71',
             'ros': '#e84393', 'brc': '#ffffff', 'line-default': '#888888'
         };
         let dynamicColors = {};
         let currentAlignment = 'centro';
 
-        const workspaceWrapper = document.getElementById('workspace-wrapper');
-        const workspace = document.getElementById('workspace');
+        const exportTarget = document.getElementById('export-target');
 
         function toggleModal() {
             const modal = document.getElementById('syntax-modal');
             modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
         }
+
+        function toggleExportMenu() {
+            const menu = document.getElementById('export-menu');
+            menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        document.addEventListener('click', function(e) {
+            if(!e.target.closest('#export-menu') && !e.target.closest('#btn-export-main')) {
+                document.getElementById('export-menu').style.display = 'none';
+            }
+        });
 
         const textarea = document.getElementById('code-input');
         const colorPicker = document.getElementById('hidden-color-picker');
@@ -330,6 +361,10 @@ _δὲ_ (vrd)
         function parseConfigAndLines(text) {
             dynamicColors = {};
             currentAlignment = 'centro';
+            
+            let currentSpacingX = 10; 
+            let currentSpacingY = 22; 
+            
             const rawLines = text.split('\n');
             const cleanLines = [];
 
@@ -344,8 +379,36 @@ _δὲ_ (vrd)
                     currentAlignment = alignMatch[1].toLowerCase();
                     return;
                 }
+
+                const spaceXMatch = line.match(/^\/\/espaçox:\s*([+-]?\d+)/i);
+                if (spaceXMatch) {
+                    let modifier = parseInt(spaceXMatch[1], 10);
+                    currentSpacingX = 10 + modifier;
+                    if (currentSpacingX < 0) currentSpacingX = 0;
+                    return;
+                }
+                const spaceYMatch = line.match(/^\/\/espaçoy:\s*([+-]?\d+)/i);
+                if (spaceYMatch) {
+                    let modifier = parseInt(spaceYMatch[1], 10);
+                    currentSpacingY = 22 + modifier;
+                    if (currentSpacingY < 0) currentSpacingY = 0;
+                    return;
+                }
+
+                const spaceLegacyMatch = line.match(/^\/\/espaçamento:\s*([+-]?\d+)/i);
+                if (spaceLegacyMatch) {
+                    let modifier = parseInt(spaceLegacyMatch[1], 10);
+                    currentSpacingX = 10 + modifier;
+                    if (currentSpacingX < 0) currentSpacingX = 0;
+                    return;
+                }
+
                 if (line.trim() !== '') cleanLines.push(line);
             });
+            
+            document.documentElement.style.setProperty('--node-padding', currentSpacingX + 'px');
+            document.documentElement.style.setProperty('--node-spacing-y', currentSpacingY + 'px');
+            
             return cleanLines;
         }
 
@@ -354,19 +417,30 @@ _δὲ_ (vrd)
             
             html = html.replace(/\(#(\w+)\)/g, '');
             
-            html = html.replace(/\((->|-)(\w+)(?::(\w+))?\)/g, (match, type, target, color) => {
+            html = html.replace(/([(\[<])(->|-)(\w+)(?::(\w+))?([)\]>])/g, (match, openBracket, type, target, color, closeBracket) => {
+                if ((openBracket === '(' && closeBracket !== ')') ||
+                    (openBracket === '[' && closeBracket !== ']') ||
+                    (openBracket === '<' && closeBracket !== '>')) {
+                    return match; 
+                }
+                
                 const rType = type === '->' ? 'arrow' : 'line';
                 const rTarget = `node-${target}`;
                 const rColor = color || 'ama'; 
-                return `<span class="ref-anchor" data-ref-target="${rTarget}" data-ref-type="${rType}" data-ref-color="${rColor}" style="display:none;"></span>`;
+                
+                let rStyle = 'curve';
+                if (openBracket === '[') rStyle = 'orthogonal';
+                if (openBracket === '<') rStyle = 'straight';
+
+                return `<span class="ref-anchor" data-ref-target="${rTarget}" data-ref-type="${rType}" data-ref-color="${rColor}" data-ref-style="${rStyle}" style="display:none;"></span>`;
             });
 
             html = html.replace(/(.*?)\(([\w]+)\)/gi, (match, p1, p2) => {
                 let cat = p2.toLowerCase();
                 if (cat === 'vrm') cat = 'verm';
-                if (cat === 'vrd') cat = 'vd';
+                if (cat === 'vrd') cat = 'vrd';
                 
-                const nativeCats = ['verm', 'ama', 'azu', 'cia', 'rox', 'vd', 'ros', 'brc'];
+                const nativeCats = ['verm', 'ama', 'azu', 'cia', 'rox', 'vrd', 'ros', 'brc'];
                 
                 if (nativeCats.includes(cat)) {
                     return `<span class="cat-${cat}">${p1.trim()}</span> `;
@@ -389,18 +463,18 @@ _δὲ_ (vrd)
             const stack = [ { depth: -1, node: root } ];
 
             lines.forEach(line => {
-                const lineMatch = line.match(/^([-=]+)(?:\s*\(([\w]+)\))?/i);
+                const lineMatch = line.match(/^([-=~]+)(?:\s*\(([\w]+)\))?/i);
                 const depth = lineMatch ? lineMatch[1].length : 0;
                 let lineChar = lineMatch ? lineMatch[1][0] : '-';
                 
                 let lineColorRaw = lineMatch && lineMatch[2] ? lineMatch[2].toLowerCase() : 'line-default';
                 if (lineColorRaw === 'vrm') lineColorRaw = 'verm';
-                if (lineColorRaw === 'vrd') lineColorRaw = 'vd';
+                if (lineColorRaw === 'vrd') lineColorRaw = 'vrd';
                 let lineColor = lineColorRaw;
                 
                 let rawContent = line;
                 if (lineMatch) {
-                    const linePrefixRegex = new RegExp(`^[-=]+(?:\\s*\\(${lineMatch[2]}\\))?`, 'i');
+                    const linePrefixRegex = new RegExp(`^[-=~]+(?:\\s*\\(${lineMatch[2]}\\))?`, 'i');
                     rawContent = line.replace(linePrefixRegex, '').trim();
                 }
 
@@ -494,15 +568,15 @@ _δὲ_ (vrd)
         function drawAllLines() {
             if (!window.currentTreeData) return;
             
-            void workspace.offsetHeight; 
+            void exportTarget.offsetHeight; 
 
             const svg = document.getElementById('svg-layer');
-            const workspaceRect = workspace.getBoundingClientRect();
+            const targetRect = exportTarget.getBoundingClientRect();
 
-            svg.style.width = workspace.scrollWidth + 'px';
-            svg.style.height = workspace.scrollHeight + 'px';
-            svg.setAttribute('width', workspace.scrollWidth);
-            svg.setAttribute('height', workspace.scrollHeight);
+            svg.style.width = exportTarget.scrollWidth + 'px';
+            svg.style.height = exportTarget.scrollHeight + 'px';
+            svg.setAttribute('width', exportTarget.scrollWidth);
+            svg.setAttribute('height', exportTarget.scrollHeight);
             
             let defsHTML = '';
             const markerColors = new Set();
@@ -521,7 +595,7 @@ _δὲ_ (vrd)
             svg.innerHTML = `<defs>${defsHTML}</defs>`;
 
             function traverse(node) {
-                const visibleChildren = node.children.filter(c => c.lineChar === '=');
+                const visibleChildren = node.children.filter(c => c.lineChar === '=' || c.lineChar === '~');
                 if (visibleChildren.length > 0 && node.id !== 'root') {
                     const parentContent = document.getElementById(`content-${node.id}`);
                     const parentTitle = document.getElementById(`title-${node.id}`);
@@ -541,14 +615,14 @@ _δὲ_ (vrd)
                             Px = rect.left + rect.width / 2; Py = rect.bottom;
                         }
 
-                        Px -= workspaceRect.left; Py -= workspaceRect.top;
+                        Px -= targetRect.left; Py -= targetRect.top;
 
                         visibleChildren.forEach(child => {
                             const childContent = document.getElementById(`content-${child.id}`);
                             if (childContent) {
                                 const rect = childContent.getBoundingClientRect();
-                                const Cx = (rect.left - workspaceRect.left) + rect.width / 2;
-                                const Cy = (rect.top - workspaceRect.top);
+                                const Cx = (rect.left - targetRect.left) + rect.width / 2;
+                                const Cy = (rect.top - targetRect.top);
 
                                 const midY = Py + (Cy - Py) / 2;
                                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -564,6 +638,11 @@ _δὲ_ (vrd)
                                 path.setAttribute("stroke", strokeColor);
                                 path.setAttribute("stroke-width", "1.5");
                                 path.setAttribute("fill", "transparent");
+                                
+                                if (child.lineChar === '~') {
+                                    path.setAttribute("stroke-dasharray", "5,5");
+                                }
+
                                 svg.appendChild(path);
                             }
                         });
@@ -582,16 +661,33 @@ _δὲ_ (vrd)
                     const rect1 = source.getBoundingClientRect();
                     const rect2 = target.getBoundingClientRect();
 
-                    const x1 = (rect1.left - workspaceRect.left) + (rect1.width / 2);
-                    const y1 = (rect1.bottom - workspaceRect.top);
-                    const x2 = (rect2.left - workspaceRect.left) + (rect2.width / 2);
-                    const y2 = (rect2.bottom - workspaceRect.top);
+                    const x1 = (rect1.left - targetRect.left) + (rect1.width / 2);
+                    const y1 = (rect1.bottom - targetRect.top);
+                    const x2 = (rect2.left - targetRect.left) + (rect2.width / 2);
+                    const y2Bottom = (rect2.bottom - targetRect.top);
+                    const y1Center = (rect1.top - targetRect.top) + (rect1.height / 2);
+                    const y2Center = (rect2.top - targetRect.top) + (rect2.height / 2);
 
+                    const rStyle = anchor.getAttribute('data-ref-style') || 'curve';
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                    const curveY = Math.max(y1, y2) + 60; 
-                    const midX = (x1 + x2) / 2;
                     
-                    path.setAttribute("d", `M ${x1} ${y1} Q ${midX} ${curveY} ${x2} ${y2}`);
+                    if (rStyle === 'orthogonal') {
+                        const dropY = Math.max(y1, y2Bottom) + 20;
+                        path.setAttribute("d", `M ${x1} ${y1} L ${x1} ${dropY} L ${x2} ${dropY} L ${x2} ${y2Bottom}`);
+                    } else if (rStyle === 'straight') {
+                        const x1Right = (rect1.right - targetRect.left);
+                        const x1Left = (rect1.left - targetRect.left);
+                        const x2Left = (rect2.left - targetRect.left);
+                        const x2Right = (rect2.right - targetRect.left);
+                        
+                        let startX = x1 < x2 ? x1Right : x1Left;
+                        let endX = x1 < x2 ? x2Left : x2Right;
+                        path.setAttribute("d", `M ${startX} ${y1Center} L ${endX} ${y2Center}`);
+                    } else {
+                        const curveY = Math.max(y1, y2Bottom) + 20; 
+                        const midX = (x1 + x2) / 2;
+                        path.setAttribute("d", `M ${x1} ${y1} Q ${midX} ${curveY} ${x2} ${y2Bottom}`);
+                    }
                     
                     const rType = anchor.getAttribute('data-ref-type');
                     const rColor = anchor.getAttribute('data-ref-color');
@@ -599,9 +695,12 @@ _δὲ_ (vrd)
                     
                     path.setAttribute("stroke", strokeColor);
                     path.setAttribute("stroke-width", "1.5");
-                    path.setAttribute("stroke-dasharray", "4,4");
                     path.setAttribute("fill", "transparent");
                     
+                    if (rStyle !== 'straight' || rType === 'line') {
+                         path.setAttribute("stroke-dasharray", "4,4");
+                    }
+
                     if (rType === 'arrow') {
                         path.setAttribute("marker-end", `url(#arrow-${strokeColor.replace('#','')})`);
                     }
@@ -611,8 +710,9 @@ _δὲ_ (vrd)
         }
 
         function renderTree() {
-            const cabecalho = document.getElementById('cabecalho-input').value;
-            document.getElementById('cabecalho-display').innerText = cabecalho;
+            const cabecalhoText = document.getElementById('cabecalho-input').value;
+            const parsedCabecalho = parseContent(cabecalhoText);
+            document.getElementById('cabecalho-display').innerHTML = parsedCabecalho.content;
 
             const input = document.getElementById('code-input').value;
             const cleanLines = parseConfigAndLines(input);
@@ -626,29 +726,31 @@ _δὲ_ (vrd)
         }
 
         function getFilename(ext) {
-            let nome = document.getElementById('cabecalho-input').value.trim();
+            let nome = document.getElementById('cabecalho-input').value.replace(/<[^>]*>?/gm, '').trim();
             if (!nome) nome = 'esquema_sintatico';
             nome = nome.replace(/[\\/:*?"<>|]/g, '-').substring(0, 80);
             return `${nome}.${ext}`;
         }
 
-        // Funções de exportação agora agem diretamente sobre a matéria estabilizada
-        function exportToPNG() {
-            html2canvas(document.getElementById('workspace'), { backgroundColor: null, scale: 2 }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = getFilename('png');
-                link.href = canvas.toDataURL('image/png'); 
-                link.click();
-            });
-        }
-
-        function exportToJPG() {
-            html2canvas(document.getElementById('workspace'), { backgroundColor: '#000000', scale: 2 }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = getFilename('jpg');
-                link.href = canvas.toDataURL('image/jpeg', 0.9); 
-                link.click();
-            });
+        function exportChart(format, bgColor) {
+            document.getElementById('export-menu').style.display = 'none';
+            
+            setTimeout(() => {
+                html2canvas(document.getElementById('export-target'), { 
+                    backgroundColor: bgColor, 
+                    scale: 5,
+                    useCORS: true,
+                    logging: false 
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = getFilename(format);
+                    link.href = canvas.toDataURL(`image/${format === 'jpg' ? 'jpeg' : 'png'}`, 0.9); 
+                    link.click();
+                }).catch(err => {
+                    console.error("Erro material na geração da imagem: ", err);
+                    alert("Houve uma obstrução ao exportar o diagrama. Verifique o console.");
+                });
+            }, 100); 
         }
 
         let tempoEspera;
