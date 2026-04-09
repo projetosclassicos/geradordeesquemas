@@ -141,7 +141,8 @@
         .tree.align-centro li { align-items: center; }
 
         .tree li { position: relative; padding: 0 var(--node-padding); display: flex; flex-direction: column; list-style-type: none; }
-        .node, .box-wrapper { position: relative; z-index: 2; }
+        
+        .node, .box-wrapper {position: relative; z-index: 5; }
         .node { padding: 2px 4px; font-size: 17px; text-align: center; white-space: nowrap; }
 
         .node { 
@@ -149,9 +150,14 @@
             font-size: 17px; 
             text-align: center; 
             white-space: nowrap;
-            background-color: var(--bg-color);
-            z-index: 5; 
+            background-color: var(--bg-color)
+            
         }
+        
+       .node-box {
+           border:1px solid;
+           border-radius: 4px;
+       }
 
         .cat-verm { color: var(--cor-verm); }
         .cat-ama  { color: var(--cor-ama); }
@@ -167,7 +173,7 @@
             display: inline-flex; flex-direction: column; align-items: center; border-radius: 4px;
         }
         
-        .box-wrapper.no-title { padding-top: 2px; padding-bottom: 2px; }
+        .box-wrapper.no-title { padding-top: 2px; padding-bottom: 2px}
         .box-wrapper.has-title.title-cima { padding-top: 14px; }
         .box-wrapper.has-title.title-baixo { padding-bottom: 14px; padding-top: 4px; }
         .box-wrapper > ul { padding-top: 2px; }
@@ -187,6 +193,8 @@
         .box-ciano    { border-color: var(--cor-cia); }
         .box-roxo     { border-color: var(--cor-rox); }
         .box-rosa     { border-color: var(--cor-ros); }
+        
+        
 
         #syntax-modal {
             display: none; position: absolute; top: 55px; left: 15px; right: 15px;
