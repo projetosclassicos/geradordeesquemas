@@ -122,7 +122,7 @@
         }
 
         #svg-layer {
-            position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1;
+            position: absolute; top: 0; left: 0; pointer-events: none; z-index: 4;
         }
 
         .tree { display: flex; justify-content: center; }
@@ -142,6 +142,22 @@
 
         .tree li { position: relative; padding: 0 var(--node-padding); display: flex; flex-direction: column; list-style-type: none; }
         
+        .tree.fluxo-ED ul {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .tree.fluxo-ED li {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .tree.fluxo-ED li::before, .tree.fluxo-ED li::after {
+            display: none; 
+        }
+
         .box-wrapper { position: relative; z-index: 5; }
 
         .node { 
@@ -159,7 +175,7 @@
            border-radius: 4px;
        }
 
-       /*Cores nativas :)*/ 
+       /*Cores nativas :) */ 
         .cat-vrm { color: var(--cor-vrm); }
         .cat-ama  { color: var(--cor-ama); }
         .cat-azu  { color: var(--cor-azu); }
@@ -239,9 +255,9 @@
 
             <div class="syntax-section">
                 <p><span class="hl">2. Caixas:</span></p>
+                <p><code>[Palavra]{box-cor}</code> Caixa simples</p>
                 <p><code>[CI Título]{box-cor}</code> Caixa com título acima</p>
                 <p><code>[BA Título]{box-cor}</code> Caixa com título abaixo</p>
-                <p><code>[Palavra]{box-cor}</code> Caixa simples</p>
             </div>
 
             <div class="syntax-section">
@@ -263,7 +279,14 @@
                 <p><code>//espaçox:+10</code> Ajusta o espaçamento horizontal</p>
                 <p><code>//espaçoy:-5</code> Ajusta o espaçamento vertical</p>
                 <p><code>//alinhar:esquerda</code> (centro, direita)</p>
+                <p><code>//fluxo:CB</code> Cima-Baixo (Padrão) | <code>ED (Esquerda-Direita)</code>
+            </div>
+
+            <div class="syntax-section">
+                <p><span class="hl">6. Formatação de Texto:</span></p>
                 <p><code>**Negrito**</code> | <code>*Itálico*</code> | <code>_Sublinhado_</code></p>
+                <p><code>^Sobrescrito^</code> | <code>,,Subscrito,,</code></p>
+                <p><code>/qb</code> Quebra de linha no mesmo nó</p>
             </div>
         </div>
 
@@ -316,13 +339,18 @@ _δὲ_ (vrd)
     <input type="color" id="hidden-color-picker" style="position:absolute; opacity:0; pointer-events:none;">
 
     <script>
+        
+        //cores
         const colorsDict = {
             'vrm': '#ff3333', 'ama': '#f1c40f', 'azu': '#3498db',
             'cia': '#00ffff', 'rox': '#9b59b6', 'vrd': '#2ecc71',
             'ros': '#e84393', 'brc': '#ffffff', 'line-default': '#888888'
         };
+        
+        //base
         let dynamicColors = {};
         let currentAlignment = 'centro';
+        let currentFlow = 'CB'; 
 
         const exportTarget = document.getElementById('export-target');
 
@@ -398,6 +426,13 @@ _δὲ_ (vrd)
                     return;
                 }
 
+                //refazer depois
+                const fluxoMatch = line.match(/^\/\/fluxo:\s*(CB|BC|ED|DE)/i);
+                if (fluxoMatch) {
+                    currentFlow = fluxoMatch[1].toUpperCase();
+                    return;
+                }
+
                 const spaceXMatch = line.match(/^\/\/espaçox:\s*([+-]?\d+)/i);
                 if (spaceXMatch) {
                     let modifier = parseInt(spaceXMatch[1], 10);
@@ -468,9 +503,13 @@ _δὲ_ (vrd)
                 return match; 
             });
 
+            //replaces
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
             html = html.replace(/_(.*?)_/g, '<u>$1</u>');
+            html = html.replace(/\/qb/g, '<br>');
+            html = html.replace(/\^([^\^]+)\^/g, '<sup>$1</sup>');
+            html = html.replace(/,,(.*?),,/g, '<sub>$1</sub>');
 
             return { content: html.trim() };
         }
@@ -640,49 +679,76 @@ _δὲ_ (vrd)
                     const parentTitle = document.getElementById(`title-${node.id}`);
                     
                     if (parentContent) {
-                        let Px, Py;
+                        const pRect = parentContent.getBoundingClientRect();
+                        
+                    
+                        let basePx, basePy;
                         if (node.isWrapperBox) {
                             if (parentTitle && node.boxPos === 'cima') {
                                 const rect = parentTitle.getBoundingClientRect();
-                                Px = rect.left + rect.width / 2; Py = rect.bottom;
+                                basePx = rect.left + rect.width / 2; basePy = rect.bottom;
                             } else {
-                                const rect = parentContent.getBoundingClientRect();
-                                Px = rect.left + rect.width / 2; Py = rect.top;
+                                basePx = pRect.left + pRect.width / 2; basePy = pRect.top;
                             }
                         } else {
-                            const rect = parentContent.getBoundingClientRect();
-                            Px = rect.left + rect.width / 2; Py = rect.bottom;
+                            basePx = pRect.left + pRect.width / 2; basePy = pRect.bottom;
                         }
 
-                        Px -= targetRect.left; Py -= targetRect.top;
+                        basePx -= targetRect.left; 
+                        basePy -= targetRect.top;
 
                         visibleChildren.forEach(child => {
-                        const childContent = document.getElementById(`content-${child.id}`);
-                        
-                        if (childContent) {
-                            const rect = childContent.getBoundingClientRect();
-                            const Cx = (rect.left - targetRect.left) + rect.width / 2;
-                            const Cy = (rect.top - targetRect.top);
+                            const childContent = document.getElementById(`content-${child.id}`);
+                            
+                            if (childContent) {
+                                const rect = childContent.getBoundingClientRect();
+                                
+                                let Px, Py, Cx, Cy, midX, midY, dAttribute;
 
-                            const midY = Py + (Cy - Py) / 2;
-                            
-                            const dAttribute = `M ${Px} ${Py} L ${Px} ${midY} L ${Cx} ${midY} L ${Cx} ${Cy}`;
-                            
-                            let strokeColor = obterCor(child.lineColor, obterCor(node.lineColor));
-                            
-                            const path = criarCaminhoSVG(
-                                dAttribute, 
-                                strokeColor, 
-                                child.lineChar === '~'
-                            );
-                            
-                            svg.appendChild(path);
-                        } 
-                    });
+                                //Geometria e dor de cabeça
+                                if (currentFlow === 'CB') {
+                                    Px = basePx; 
+                                    Py = basePy; 
+                                    Cx = (rect.left - targetRect.left) + rect.width / 2;
+                                    Cy = (rect.top - targetRect.top);
+                                    midY = Py + (Cy - Py) / 2;
+                                    dAttribute = `M ${Px} ${Py} L ${Px} ${midY} L ${Cx} ${midY} L ${Cx} ${Cy}`;
+                                } 
+                                else if (currentFlow === 'BC') {
+                                    Px = basePx;
+                                    Py = (pRect.top - targetRect.top); // sai por cima
+                                    Cx = (rect.left - targetRect.left) + rect.width / 2;
+                                    Cy = (rect.bottom - targetRect.top); // entra por baixo (eita)
+                                    midY = Py - (Py - Cy) / 2;
+                                    dAttribute = `M ${Px} ${Py} L ${Px} ${midY} L ${Cx} ${midY} L ${Cx} ${Cy}`;
+                                }
+                                else if (currentFlow === 'ED') {
+                                    Px = (pRect.right - targetRect.left); 
+                                    Py = (pRect.top - targetRect.top) + pRect.height / 2;
+                                    Cx = (rect.left - targetRect.left); 
+                                    Cy = (rect.top - targetRect.top) + rect.height / 2;
+                                    midX = Px + (Cx - Px) / 2;
+                                    dAttribute = `M ${Px} ${Py} L ${midX} ${Py} L ${midX} ${Cy} L ${Cx} ${Cy}`;
+                                }
+                                else if (currentFlow === 'DE') {
+                                    Px = (pRect.left - targetRect.left); 
+                                    Py = (pRect.top - targetRect.top) + pRect.height / 2;
+                                    Cx = (rect.right - targetRect.left); 
+                                    Cy = (rect.top - targetRect.top) + rect.height / 2;
+                                    midX = Px - (Px - Cx) / 2;
+                                    dAttribute = `M ${Px} ${Py} L ${midX} ${Py} L ${midX} ${Cy} L ${Cx} ${Cy}`;
+                                }
+
+                                let strokeColor = obterCor(child.lineColor, obterCor(node.lineColor));
+                                const path = criarCaminhoSVG(dAttribute, strokeColor, child.lineChar === '~');
+                                svg.appendChild(path);
+                            }
+                        });
                     }
                 }
                 node.children.forEach(traverse);
             }
+
             traverse(window.currentTreeData);
 
             refs.forEach(anchor => {
@@ -704,6 +770,7 @@ _δὲ_ (vrd)
                     const rStyle = anchor.getAttribute('data-ref-style') || 'curve';
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                     
+                    //mais dor de cabeça
                     if (rStyle === 'orthogonal') {
                         const dropY = Math.max(y1, y2Bottom) + 20;
                         path.setAttribute("d", `M ${x1} ${y1} L ${x1} ${dropY} L ${x2} ${dropY} L ${x2} ${y2Bottom}`);
@@ -752,7 +819,7 @@ _δὲ_ (vrd)
             window.currentTreeData = buildTreeData(cleanLines);
             
             const treeContainer = document.getElementById('tree-container');
-            treeContainer.className = `tree align-${currentAlignment}`;
+            treeContainer.className = `tree align-${currentAlignment} fluxo-${currentFlow}`;
             treeContainer.innerHTML = renderChildren(window.currentTreeData);
             
             setTimeout(drawAllLines, 150); 
