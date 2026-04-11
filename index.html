@@ -221,6 +221,37 @@
         #syntax-modal h3 { margin: 0 0 10px 0; font-family: 'EB Garamond', serif; color: var(--cor-ama); border-bottom: 1px solid #444; padding-bottom: 5px; }
         #syntax-modal .close-btn { position: absolute; top: 10px; right: 15px; cursor: pointer; color: #aaa; font-weight: bold; }
         .syntax-section { margin-bottom: 15px; } .syntax-section p { margin: 5px 0; } .hl { color: var(--cor-cia); }
+    
+    /*modo claro!*/
+    body.light-theme {
+    --bg-color: #ffffff;
+    --panel-bg: #ffffff;
+    --text-color: #1a1a1a;
+    
+    --cor-vrm: #c0392b; 
+    --cor-ama: #b8860b; 
+    --cor-azu: #2980b9; 
+    --cor-cia: #008080; 
+    --cor-rox: #8e44ad; 
+    --cor-vrd: #27ae60; 
+    --cor-ros: #d81b60; 
+    --cor-brc: #2c3e50; 
+    }
+
+    body.light-theme #editor-panel { border-right-color: #dcdcdc; box-shadow: 2px 0 15px rgba(0,0,0,0.05); }
+    body.light-theme #editor-header { background-color: #e8e3dc; border-bottom-color: #dcdcdc; color: #1a1a1a; }
+    body.light-theme .action-btn { border-color: #888; color: #555; }
+    body.light-theme .action-btn:hover { background-color: var(--cor-ama); color: #000; border-color: var(--cor-ama); }
+    body.light-theme #export-menu, body.light-theme #syntax-modal { background: #ffffff; border-color: #dcdcdc; color: #1a1a1a; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    body.light-theme #export-menu div { border-bottom-color: #eee; color: #333; }
+    body.light-theme #export-menu div:hover { background: #f4f0eb; color: #000; }
+    body.light-theme .input-box { border-bottom-color: #dcdcdc; }
+    body.light-theme .input-box input { background: #ffffff; border-color: #dcdcdc; color: #1a1a1a; }
+    body.light-theme textarea { background-color: var(--panel-bg); color: #333; }
+    body.light-theme #cabecalho-display { border-bottom-color: #dcdcdc; }
+    body.light-theme .box-title { background-color: var(--bg-color); color: #555; }
+    body.light-theme #syntax-modal h3 { border-bottom-color: #dcdcdc; color: #1a1a1a; }
+
     </style>
 </head>
 <body>
@@ -235,6 +266,11 @@
                 <div class="action-btn" onclick="toggleExportMenu()" title="Exportar Esquema" id="btn-export-main">
                     <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                 </div>
+
+                <div class="action-btn" onclick="toggleTheme()" title="Alternar Tema">
+                    <svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/></svg>
+                </div>
+
                 <div id="export-menu">
                     <div onclick="exportChart('jpg', '#000000')">Exportar JPG (Fundo Preto)</div>
                     <div onclick="exportChart('png', '#000000')">Exportar PNG (Fundo Preto)</div>
@@ -362,6 +398,10 @@ _δὲ_ (vrd)
         function toggleExportMenu() {
             const menu = document.getElementById('export-menu');
             menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function toggleTheme() {
+        document.body.classList.toggle('light-theme');
         }
 
         const exportMenu = document.getElementById('export-menu');
