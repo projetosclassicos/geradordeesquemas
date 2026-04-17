@@ -7,9 +7,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
 
-      /* optei por um arquivo único para facilitar o download e execução do código offline*/
-      
-      /* Estética Clássica - Tipografia e Proporções */
+        /* optei por um arquivo único para facilitar o download e execução do código offline*/
+        /* Estética Clássica - Tipografia e Proporções */
         @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
 
         /* Cores Nativas :) */
@@ -357,6 +356,7 @@
                 <p><code>[CI Título]{box-cor}</code> Caixa com título acima</p>
                 <p><code>[BA Título]{box-cor}</code> Caixa com título abaixo</p>
                 <p><code>[Palavra]{box~cor}</code> Caixa tracejada, também funciona com títulos </p> 
+                <p><code>/qbbox /code> Força a quebra da caixa </p> 
             </div>
 
             <div class="syntax-section">
@@ -367,7 +367,7 @@
 
             <div class="syntax-section">
                 <p><span class="hl">4. Conexões Lógicas:</span></p>
-                <p><code>(#id)</code> Cria uma âncora invisível</p>
+                <p><code>(#id)</code> Cria uma âncora invisível. Ela pode ser batizada com qualquer nome, contanto que se inicie pelo caractere # ex:(#nome)</p>
                 <p><code>(->id:cor)</code> Curva | <code>(-id:cor)</code> Curva simples</p>
                 <p><code>[->id:cor]</code> Reta (Ortogonal)</p>
                 <p><code>&lt;->id:cor&gt;</code> Reta direta</p>
@@ -560,9 +560,16 @@ _δὲ_ (vrd)
                     return; 
                 }
 
-                const spaceLegacy = linha.match(/^\/\/espaçamento:\s*([+-]?\d+)/i);
+                const spaceLegacy =linha.match(/^\/\/espaçamento:\s*([+-]?\d+)/i);
                 if (spaceLegacy) {
                     espacamentoX = Math.max(0, 10 + parseInt(spaceLegacy[1], 10));
+                    return;
+                }
+
+                // Nova diretiva para título (não vai para a árvore)
+                const tituloMatch = linha.match(/^\/\/título:\s*(.*)$/i);
+                if (tituloMatch) {
+                    // Não faz nada aqui, o título é tratado na importação/exportação
                     return;
                 }
 
@@ -612,7 +619,7 @@ _δὲ_ (vrd)
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
             html = html.replace(/_(.*?)_/g, '<u>$1</u>');
-            html = html.replace(/\/qb/g, '<br>');
+            html = html.replace(/\/qb(?!box)/g, '<br>');
             html = html.replace(/\^([^\^]+)\^/g, '<sup>$1</sup>');
             html = html.replace(/,,(.*?),,/g, '<sub>$1</sub>');
 
@@ -825,6 +832,9 @@ _δὲ_ (vrd)
 
                                 if (EstadoSintatico.fluxo === 'CB') {
                                     Px = basePx; Py = basePy; 
+                                    if (noh.ehCaixaConteiner && !parentContent.contains(childContent)) {
+                                        Py = (pRect.bottom - targetRect.top);
+                                    }
                                     Cx = (rect.left - targetRect.left) + rect.width / 2;
                                     Cy = (rect.top - targetRect.top);
                                     midY = Py + (Cy - Py) / 2;
@@ -859,13 +869,31 @@ _δὲ_ (vrd)
 
             percorrerEDesenharArvore(window.arvoreAtual);
 
-            // Desenha as conexões (âncoras)
-            refs.forEach(anchor => {
+            // --- Desenha as conexões (âncoras) com offset para evitar sobreposição ---
+            const refsArray = Array.from(refs);
+            // Agrupa por elemento de origem (o nó que contém a âncora)
+            const gruposPorOrigem = new Map();
+            refsArray.forEach(anchor => {
                 const source = anchor.closest('.node') || anchor.closest('.box-wrapper');
-                const targetId = anchor.getAttribute('data-ref-target');
-                const target = document.getElementById(`content-${targetId}`) || document.getElementById(targetId);
-                
-                if (source && target) {
+                if (!source) return;
+                const key = source.id;
+                if (!gruposPorOrigem.has(key)) gruposPorOrigem.set(key, []);
+                gruposPorOrigem.get(key).push(anchor);
+            });
+
+            gruposPorOrigem.forEach((anchors, sourceId) => {
+                const source = document.getElementById(sourceId);
+                if (!source) return;
+
+                // Calcula offset incremental para cada conexão saindo da mesma origem
+                const offsetStep = 8; // pixels de deslocamento entre linhas paralelas
+                let offsetIndex = 0;
+
+                anchors.forEach(anchor => {
+                    const targetId = anchor.getAttribute('data-ref-target');
+                    const target = document.getElementById(`content-${targetId}`) || document.getElementById(targetId);
+                    if (!target) return;
+
                     const rect1 = source.getBoundingClientRect();
                     const rect2 = target.getBoundingClientRect();
 
@@ -877,11 +905,19 @@ _δὲ_ (vrd)
                     const y2Center = (rect2.top - targetRect.top) + (rect2.height / 2);
 
                     const rStyle = anchor.getAttribute('data-ref-style') || 'curve';
+                    const rType = anchor.getAttribute('data-ref-type');
+                    const rColor = anchor.getAttribute('data-ref-color');
+                    const strokeColor = DicionarioCores[rColor] || EstadoSintatico.coresDinamicas[rColor] || '#f1c40f';
+
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                     
+                    // Aplica um pequeno offset horizontal baseado no índice da âncora
+                    const offset = (offsetIndex - (anchors.length-1)/2) * offsetStep;
+                    offsetIndex++;
+
                     if (rStyle === 'orthogonal') {
-                        const dropY = Math.max(y1, y2Bottom) + 20;
-                        path.setAttribute("d", `M ${x1} ${y1} L ${x1} ${dropY} L ${x2} ${dropY} L ${x2} ${y2Bottom}`);
+                        const dropY = Math.max(y1, y2Bottom) + 20 + Math.abs(offset) * 0.5;
+                        path.setAttribute("d", `M ${x1 + offset} ${y1} L ${x1 + offset} ${dropY} L ${x2 + offset} ${dropY} L ${x2 + offset} ${y2Bottom}`);
                     } else if (rStyle === 'straight') {
                         const x1Right = (rect1.right - targetRect.left);
                         const x1Left = (rect1.left - targetRect.left);
@@ -890,21 +926,20 @@ _δὲ_ (vrd)
                         
                         let startX = x1 < x2 ? x1Right : x1Left;
                         let endX = x1 < x2 ? x2Left : x2Right;
-                        path.setAttribute("d", `M ${startX} ${y1Center} L ${endX} ${y2Center}`);
+                        // Offset vertical para retas horizontais
+                        path.setAttribute("d", `M ${startX} ${y1Center + offset} L ${endX} ${y2Center + offset}`);
                     } else {
-                        const curveY = Math.max(y1, y2Bottom) + 20; 
+                        // Curva padrão com offset no controle
+                        const curveY = Math.max(y1, y2Bottom) + 20 + Math.abs(offset) * 0.5;
                         const midX = (x1 + x2) / 2;
-                        path.setAttribute("d", `M ${x1} ${y1} Q ${midX} ${curveY} ${x2} ${y2Bottom}`);
+                        path.setAttribute("d", `M ${x1 + offset} ${y1} Q ${midX + offset} ${curveY} ${x2 + offset} ${y2Bottom}`);
                     }
-                    
-                    const rType = anchor.getAttribute('data-ref-type');
-                    const rColor = anchor.getAttribute('data-ref-color');
-                    const strokeColor = DicionarioCores[rColor] || EstadoSintatico.coresDinamicas[rColor] || '#f1c40f';
                     
                     path.setAttribute("stroke", strokeColor);
                     path.setAttribute("stroke-width", "1.5");
                     path.setAttribute("fill", "transparent");
                     
+                    // Linhas de referência são sempre tracejadas? Seguindo o comportamento original: se for 'line' ou curva sem arrow, pode ser tracejada
                     if (rStyle !== 'straight' || rType === 'line') {
                          path.setAttribute("stroke-dasharray", "4,4");
                     }
@@ -913,6 +948,40 @@ _δὲ_ (vrd)
                         path.setAttribute("marker-end", `url(#arrow-${strokeColor.replace('#','')})`);
                     }
                     svg.appendChild(path);
+                });
+            });
+        }
+
+        function aplicarQuebraDeBox() {
+            // Procuram os núcleos dos nós
+            const todosOsNodes = document.querySelectorAll('.node');
+            
+            todosOsNodes.forEach(divNode => {
+                // Usa textContent para evitar ler o HTML dos nós-pai
+                if (divNode.textContent.includes('/qbbox')) {
+                    divNode.innerHTML = divNode.innerHTML.replace('/qbbox', '').trim();
+                    
+                    // Encontra o <li> específico que segura este nó
+                    let nohLi = divNode.closest('li');
+                    
+                    // Achar a caixa do nó
+                    let paiCaixa = nohLi.closest('.box-wrapper');
+                    
+                    if (paiCaixa) {
+                        let ulInterna = nohLi.parentNode; 
+                        ulInterna.removeChild(nohLi);
+
+                        let liAncestral = paiCaixa.parentNode;
+
+                        let ulExterna = liAncestral.querySelector(':scope > ul');
+                        if (!ulExterna) {
+                            ulExterna = document.createElement('ul');
+                            liAncestral.appendChild(ulExterna);
+                        }
+                        
+                        // 8. Coloca o nṕ na hierarquia correta
+                        ulExterna.appendChild(nohLi);
+                    }
                 }
             });
         }
@@ -934,12 +1003,13 @@ _δὲ_ (vrd)
             DOM.treeContainer.className = `tree align-${EstadoSintatico.alinhamento} fluxo-${EstadoSintatico.fluxo}`;
             DOM.treeContainer.innerHTML = renderizarFilhos(window.arvoreAtual);
             
+            aplicarQuebraDeBox();
             setTimeout(desenharTodasAsLinhas, 150); 
         }
 
         function getFilename(ext) {
             let nome = DOM.cabecalhoInput.value.replace(/<[^>]*>?/gm, '').trim();
-            if (!nome) nome = 'esquema_sintatico';
+            if (!nome) nome = 'gráfico';
             nome = nome.replace(/[\\/:*?"<>|]/g, '-').substring(0, 80);
             return `${nome}.${ext}`;
         }
@@ -1013,15 +1083,23 @@ _δὲ_ (vrd)
         // --- Lida com a exportação e importação do arquivo TXT ---
 
         window.exportarPapiro = function() {
-            let texto = DOM.textarea.value;
+            let textoArvore = DOM.textarea.value;
+            let titulo = DOM.cabecalhoInput.value.trim();
             
-            // Se estiver vazio, avisa e cancela a operação
-            if (texto.trim() === '') {
+            // Se o título não estiver vazio, adiciona no início
+            let conteudoFinal = '';
+            if (titulo !== '') {
+                conteudoFinal += `//título: ${titulo}\n`;
+            }
+            conteudoFinal += textoArvore;
+            
+            // Se tudo estiver em branco, avisa e cancela
+            if (conteudoFinal.trim() === '') {
                 alert("O arquivo está em branco. Escreva algo antes de salvar.");
                 return;
             }
 
-            let blob = new Blob([texto], { type: 'text/plain' });
+            let blob = new Blob([conteudoFinal], { type: 'text/plain' });
             let link = document.createElement('a');
             
             // Pega a data de hoje para colocar no nome e não sobrescrever arquivos antigos
@@ -1030,7 +1108,7 @@ _δὲ_ (vrd)
             let hora = hoje.getHours();
             let minuto = hoje.getMinutes();
             
-            // Pega o nome lá do cabeçalho da árvore
+            // Pega o nome do cabeçalho da árvore
             let nomeBase = getFilename('txt').replace('.txt', '');
             
             // Junta tudo de um jeito simples, sem fórmulas complexas
@@ -1055,7 +1133,31 @@ _δὲ_ (vrd)
             let leitor = new FileReader();
             
             leitor.onload = function(e) {
-                DOM.textarea.value = e.target.result;
+                let conteudoCompleto = e.target.result;
+                let linhas = conteudoCompleto.split('\n');
+                let tituloEncontrado = '';
+                let resto = [];
+                
+                // Procur por //título:
+                for (let linha of linhas) {
+                    let match = linha.match(/^\/\/título:\s*(.*)$/i);
+                    if (match) {
+                        tituloEncontrado = match[1].trim();
+                    } else {
+                        resto.push(linha);
+                    }
+                }
+                
+                // Atualiza o campo de título
+                if (tituloEncontrado) {
+                    DOM.cabecalhoInput.value = tituloEncontrado;
+                } else {
+                    // Se não tiver, mantém o título atual (ou poderia limpar, pensar!)
+                }
+                
+                // O resto vai para a textarea (código da árvore)
+                DOM.textarea.value = resto.join('\n');
+                
                 renderizarArvore();
                 
                 // Zera o input invisível para deixar você carregar o mesmo arquivo de novo depois, se precisar
