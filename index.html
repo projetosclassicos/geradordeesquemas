@@ -6,9 +6,9 @@
     <link rel="icon" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 32 32'%3e%3cpath fill='%23EDCC0E' d='M28.768 8.818 23.182 3.23a2.5 2.5 0 0 0-3.537 0L4.233 18.646a2.48 2.48 0 0 0-.733 1.768V26A2.5 2.5 0 0 0 6 28.5h5.586a2.48 2.48 0 0 0 1.768-.733l15.414-15.414a2.5 2.5 0 0 0 0-3.535M11.624 22.5l8.875-8.875L21.875 15 13 23.875zM9.5 20.375 8.125 19 17 10.125l1.375 1.375zm-3 1.25 1.939 1.939 1.936 1.936H6.5zm17.5-8.75L19.125 8l2.293-2.293 4.875 4.876z'/%3e%3c/svg%3e" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
+
         /* Estética Clássica - Tipografia e Proporções 
-        Código único para facilitar a vida de quem quiser fazer download e usar offline!*/
-        
+        Código único para facilitar a vida de quem quiser fazer download para usar offline*/
         @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
 
         /* Cores Nativas :) */
@@ -395,7 +395,7 @@
         <textarea id="code-input" spellcheck="false">
 _δὲ_ (vrd)
 [δοκεῖ-εἶναι (vrm) ἄξιόν (azu)]{box-vrm}
-= (cia) [CI]{box-ama}
+= [CI]{box-ama}
 -- μεμνῆσθαι (vrm)
 === (cia) [με] (ama)
 === (cia) Σωκράτους (ama) (#soc) καὶ (ros)
@@ -768,71 +768,6 @@ _δὲ_ (vrd)
             return path;
         }
 
-        // Função auxiliar para calcular os pontos de conexão mais próximos entre dois nós
-        function calcularPontoConexaoInteligente(rectOrigem, rectDestino, offsetPerpendicular = 0) {
-            // Recebe os bounding rects absolutos (com left, top, right, bottom)
-            // Retorna { startX, startY, endX, endY } relativos ao canto superior esquerdo do documento
-            // offsetPerpendicular: desloca perpendicularmente à direção da linha (para múltiplas conexões)
-            
-            const centroOrigemX = (rectOrigem.left + rectOrigem.right) / 2;
-            const centroOrigemY = (rectOrigem.top + rectOrigem.bottom) / 2;
-            const centroDestinoX = (rectDestino.left + rectDestino.right) / 2;
-            const centroDestinoY = (rectDestino.top + rectDestino.bottom) / 2;
-            
-            const dx = centroDestinoX - centroOrigemX;
-            const dy = centroDestinoY - centroOrigemY;
-            
-            let startX, startY, endX, endY;
-            
-            // Decide se a linha é mais horizontal ou vertical
-            const absDx = Math.abs(dx);
-            const absDy = Math.abs(dy);
-            
-            if (absDx > absDy) {
-                // Conexão predominantemente horizontal: sair pela lateral esquerda/direita
-                if (dx > 0) {
-                    // Destino à direita: sai pela direita da origem, entra pela esquerda do destino
-                    startX = rectOrigem.right;
-                    startY = centroOrigemY;
-                    endX = rectDestino.left;
-                    endY = centroDestinoY;
-                    // Aplica offset perpendicular (vertical)
-                    startY += offsetPerpendicular;
-                    endY += offsetPerpendicular;
-                } else {
-                    // Destino à esquerda: sai pela esquerda da origem, entra pela direita do destino
-                    startX = rectOrigem.left;
-                    startY = centroOrigemY;
-                    endX = rectDestino.right;
-                    endY = centroDestinoY;
-                    startY += offsetPerpendicular;
-                    endY += offsetPerpendicular;
-                }
-            } else {
-                // Conexão predominantemente vertical: sair pela parte superior/inferior
-                if (dy > 0) {
-                    // Destino abaixo: sai pela base da origem, entra pelo topo do destino
-                    startX = centroOrigemX;
-                    startY = rectOrigem.bottom;
-                    endX = centroDestinoX;
-                    endY = rectDestino.top;
-                    // Aplica offset perpendicular (horizontal)
-                    startX += offsetPerpendicular;
-                    endX += offsetPerpendicular;
-                } else {
-                    // Destino acima: sai pelo topo da origem, entra pela base do destino
-                    startX = centroOrigemX;
-                    startY = rectOrigem.top;
-                    endX = centroDestinoX;
-                    endY = rectDestino.bottom;
-                    startX += offsetPerpendicular;
-                    endX += offsetPerpendicular;
-                }
-            }
-            
-            return { startX, startY, endX, endY };
-        }
-
         function desenharTodasAsLinhas() {
             if (!window.arvoreAtual) return;
             
@@ -933,8 +868,9 @@ _δὲ_ (vrd)
 
             percorrerEDesenharArvore(window.arvoreAtual);
 
-            // --- Desenha as conexões (âncoras) com offset inteligente e pontos mais próximos ---
+            // --- Desenha as conexões (âncoras) com offset para evitar sobreposição ---
             const refsArray = Array.from(refs);
+            // Agrupa por elemento de origem (o nó que contém a âncora)
             const gruposPorOrigem = new Map();
             refsArray.forEach(anchor => {
                 const source = anchor.closest('.node') || anchor.closest('.box-wrapper');
@@ -948,71 +884,69 @@ _δὲ_ (vrd)
                 const source = document.getElementById(sourceId);
                 if (!source) return;
 
-                // Calcula offset incremental perpendicular à direção média da linha
+                // Calcula offset incremental para cada conexão saindo da mesma origem
+                const offsetStep = 8; // pixels de deslocamento entre linhas paralelas
                 let offsetIndex = 0;
-                const total = anchors.length;
-                const step = 6; // pixels de deslocamento entre linhas paralelas
 
                 anchors.forEach(anchor => {
                     const targetId = anchor.getAttribute('data-ref-target');
                     const target = document.getElementById(`content-${targetId}`) || document.getElementById(targetId);
                     if (!target) return;
 
-                    const rectSource = source.getBoundingClientRect();
-                    const rectTarget = target.getBoundingClientRect();
+                    const rect1 = source.getBoundingClientRect();
+                    const rect2 = target.getBoundingClientRect();
 
-                    // Calcula pontos de conexão inteligentes (absolutos)
-                    let offsetPerp = (offsetIndex - (total - 1) / 2) * step;
-                    let { startX, startY, endX, endY } = calcularPontoConexaoInteligente(rectSource, rectTarget, offsetPerp);
-                    
-                    // Converte para coordenadas relativas ao targetRect
-                    startX -= targetRect.left;
-                    startY -= targetRect.top;
-                    endX -= targetRect.left;
-                    endY -= targetRect.top;
+                    const x1 = (rect1.left - targetRect.left) + (rect1.width / 2);
+                    const y1 = (rect1.bottom - targetRect.top);
+                    const x2 = (rect2.left - targetRect.left) + (rect2.width / 2);
+                    const y2Bottom = (rect2.bottom - targetRect.top);
+                    const y1Center = (rect1.top - targetRect.top) + (rect1.height / 2);
+                    const y2Center = (rect2.top - targetRect.top) + (rect2.height / 2);
 
                     const rStyle = anchor.getAttribute('data-ref-style') || 'curve';
                     const rType = anchor.getAttribute('data-ref-type');
                     const rColor = anchor.getAttribute('data-ref-color');
                     const strokeColor = DicionarioCores[rColor] || EstadoSintatico.coresDinamicas[rColor] || '#f1c40f';
 
-                    let dAttribute = '';
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    
+                    // Aplica um pequeno offset horizontal baseado no índice da âncora
+                    const offset = (offsetIndex - (anchors.length-1)/2) * offsetStep;
+                    offsetIndex++;
+
                     if (rStyle === 'orthogonal') {
-                        // Ortogonal: dois segmentos, saindo horizontalmente e depois verticalmente (ou vice-versa)
-                        const midX = (startX + endX) / 2;
-                        const midY = (startY + endY) / 2;
-                        // Decide se prefere caminho horizontal-vertical ou vertical-horizontal baseado na distância
-                        if (Math.abs(startX - endX) > Math.abs(startY - endY)) {
-                            dAttribute = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
-                        } else {
-                            dAttribute = `M ${startX} ${startY} L ${startX} ${midY} L ${endX} ${midY} L ${endX} ${endY}`;
-                        }
+                        const dropY = Math.max(y1, y2Bottom) + 20 + Math.abs(offset) * 0.5;
+                        path.setAttribute("d", `M ${x1 + offset} ${y1} L ${x1 + offset} ${dropY} L ${x2 + offset} ${dropY} L ${x2 + offset} ${y2Bottom}`);
                     } else if (rStyle === 'straight') {
-                        // Linha reta direta
-                        dAttribute = `M ${startX} ${startY} L ${endX} ${endY}`;
-                    } else { // curve (padrão)
-                        // Curva suave usando bezier cúbica com dois pontos de controle
-                        // Os pontos de controle são deslocados perpendicularmente à direção da linha
-                        const dx = endX - startX;
-                        const dy = endY - startY;
-                        const dist = Math.hypot(dx, dy);
-                        const perpX = -dy / dist;
-                        const perpY = dx / dist;
-                        const controleOffset = Math.min(40, dist * 0.3); // afastamento proporcional
-                        // Desloca perpendicularmente na mesma direção do offset já aplicado (ou para um lado)
-                        const ctrl1X = startX + dx * 0.3 + perpX * controleOffset;
-                        const ctrl1Y = startY + dy * 0.3 + perpY * controleOffset;
-                        const ctrl2X = startX + dx * 0.7 + perpX * controleOffset;
-                        const ctrl2Y = startY + dy * 0.7 + perpY * controleOffset;
-                        dAttribute = `M ${startX} ${startY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${endX} ${endY}`;
+                        const x1Right = (rect1.right - targetRect.left);
+                        const x1Left = (rect1.left - targetRect.left);
+                        const x2Left = (rect2.left - targetRect.left);
+                        const x2Right = (rect2.right - targetRect.left);
+                        
+                        let startX = x1 < x2 ? x1Right : x1Left;
+                        let endX = x1 < x2 ? x2Left : x2Right;
+                        // Offset vertical para retas horizontais
+                        path.setAttribute("d", `M ${startX} ${y1Center + offset} L ${endX} ${y2Center + offset}`);
+                    } else {
+                        // Curva padrão com offset no controle
+                        const curveY = Math.max(y1, y2Bottom) + 20 + Math.abs(offset) * 0.5;
+                        const midX = (x1 + x2) / 2;
+                        path.setAttribute("d", `M ${x1 + offset} ${y1} Q ${midX + offset} ${curveY} ${x2 + offset} ${y2Bottom}`);
+                    }
+                    
+                    path.setAttribute("stroke", strokeColor);
+                    path.setAttribute("stroke-width", "1.5");
+                    path.setAttribute("fill", "transparent");
+                    
+                    // Linhas de referência são sempre tracejadas? Seguindo o comportamento original: se for 'line' ou curva sem arrow, pode ser tracejada
+                    if (rStyle !== 'straight' || rType === 'line') {
+                         path.setAttribute("stroke-dasharray", "4,4");
                     }
 
-                    const path = criarCaminhoSVG(dAttribute, strokeColor, true); // conexões lógicas sempre tracejadas
                     if (rType === 'arrow') {
                         path.setAttribute("marker-end", `url(#arrow-${strokeColor.replace('#','')})`);
                     }
                     svg.appendChild(path);
-                    offsetIndex++;
                 });
             });
         }
@@ -1074,7 +1008,7 @@ _δὲ_ (vrd)
 
         function getFilename(ext) {
             let nome = DOM.cabecalhoInput.value.replace(/<[^>]*>?/gm, '').trim();
-            if (!nome) nome = 'esquema_sintatico';
+            if (!nome) nome = 'gráfico';
             nome = nome.replace(/[\\/:*?"<>|]/g, '-').substring(0, 80);
             return `${nome}.${ext}`;
         }
@@ -1151,7 +1085,7 @@ _δὲ_ (vrd)
             let textoArvore = DOM.textarea.value;
             let titulo = DOM.cabecalhoInput.value.trim();
             
-            // Se o título não estiver vazio, adiciona como diretiva no início
+            // Se o título não estiver vazio, adiciona no início
             let conteudoFinal = '';
             if (titulo !== '') {
                 conteudoFinal += `//título: ${titulo}\n`;
@@ -1173,7 +1107,7 @@ _δὲ_ (vrd)
             let hora = hoje.getHours();
             let minuto = hoje.getMinutes();
             
-            // Pega o nome lá do cabeçalho da árvore
+            // Pega o nome do cabeçalho da árvore
             let nomeBase = getFilename('txt').replace('.txt', '');
             
             // Junta tudo de um jeito simples, sem fórmulas complexas
@@ -1203,7 +1137,7 @@ _δὲ_ (vrd)
                 let tituloEncontrado = '';
                 let resto = [];
                 
-                // Procura pela diretiva //título:
+                // Procur por //título:
                 for (let linha of linhas) {
                     let match = linha.match(/^\/\/título:\s*(.*)$/i);
                     if (match) {
@@ -1217,7 +1151,7 @@ _δὲ_ (vrd)
                 if (tituloEncontrado) {
                     DOM.cabecalhoInput.value = tituloEncontrado;
                 } else {
-                    // Se não tiver diretiva, mantém o título atual (ou poderia limpar, mas melhor não)
+                    // Se não tiver, mantém o título atual (ou poderia limpar, pensar!)
                 }
                 
                 // O resto vai para a textarea (código da árvore)
