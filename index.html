@@ -496,19 +496,19 @@ _δὲ_ (vrd)
         DOM.textarea.addEventListener('dblclick', function(e) {
             const pos = this.selectionStart;
             const text = this.value;
-            let start = pos;
-            while (start > 0 && /\S/.test(text[start - 1])) start--;
-            let end = pos;
-            while (end < text.length && /\S/.test(text[end])) end++;
             
-            const word = text.substring(start, end);
-            if (/^#[0-9a-fA-F]{6}$/i.test(word)) {
-                EstadoSintatico.hexAtivoInicio = start;
-                EstadoSintatico.hexAtivoFim = end;
-                DOM.colorPicker.value = word;
-                DOM.colorPicker.click(); 
+            const hexRegex = /#[0-9a-fA-F]{6}/g; // Funciona?
+            let match;
+            while ((match = hexRegex.exec(text)) !== null) {
+                if (pos >= match.index && pos <= match.index + 7) {
+                    EstadoSintatico.hexAtivoInicio = match.index;
+                    EstadoSintatico.hexAtivoFim = match.index + 7;
+                    DOM.colorPicker.value = match[0];
+                    DOM.colorPicker.click();
+                    break;
+                }
             }
-        });
+        }); //FOI
 
         DOM.colorPicker.addEventListener('input', function(e) {
             if (EstadoSintatico.hexAtivoInicio !== -1) {
