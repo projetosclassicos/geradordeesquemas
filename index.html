@@ -418,7 +418,7 @@ _δὲ_ (vrd)
 ====== (cia) τῆς (azu)
 ~~~~~~ [CI]{box~azu}
 ------- βίου (ama)
-======== (cia) τοῦ (brc)
+======== (cia) τοῦ
 ----- [CI]{box-brc}
 ------ ἐπειδὴ (rox)
 ------ ἐκλήθη (vrm)
@@ -625,7 +625,7 @@ _δὲ_ (vrd)
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
             html = html.replace(/_(.*?)_/g, '<u>$1</u>');
-            html = html.replace(/\/qb(?!)/g, '<br>');
+            html = html.replace(/\/qb(?!box)/g, '<br>');
             html = html.replace(/\^([^\^]+)\^/g, '<sup>$1</sup>');
             html = html.replace(/,,(.*?),,/g, '<sub>$1</sub>');
 
@@ -663,7 +663,7 @@ _δὲ_ (vrd)
                 let ehCaixaConteiner = false, ehCaixaSimples = false;
                 let tituloCaixa = '', tipoCaixa = '', posicaoCaixa = 'cima';
 
-                const caixaMatch = textoParaCaixa.match(/^\[(CI|BA)?\s*(.*?)\]\{([-~][\w\-]+)\}$/i);
+                const caixaMatch = textoParaCaixa.match(/^\[(CI|BA)?\s*(.*?)\]\{(box[-~][\w\-]+)\}$/i);
                 if (caixaMatch) {
                     if (caixaMatch[1]) { 
                         ehCaixaConteiner = true;
@@ -706,8 +706,8 @@ _δὲ_ (vrd)
             const processado = processarMarcacoesLexicas(noh.conteudo);
             const ancoras = extrairAncorasApenas(processado.content);
             
-            let ehPontilhado = noh.tipoCaixa && noh.tipoCaixa.includes('~');
-            let classeCaixa = noh.tipoCaixa ? noh.tipoCaixa.replace('~', 'box-') : '';
+            let ehPontilhado = noh.tipoCaixa && noh.tipoCaixa.includes('box~');
+            let classeCaixa = noh.tipoCaixa ? noh.tipoCaixa.replace('box~', 'box-') : '';
             
             
             let tipoBase = classeCaixa ? classeCaixa.replace('box-', '').toLowerCase() : '';
