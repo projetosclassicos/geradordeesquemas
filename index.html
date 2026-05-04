@@ -5,6 +5,7 @@
     <title>Gerador de Estemas</title>
     <link rel="icon" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 32 32'%3e%3cpath fill='%23EDCC0E' d='M28.768 8.818 23.182 3.23a2.5 2.5 0 0 0-3.537 0L4.233 18.646a2.48 2.48 0 0 0-.733 1.768V26A2.5 2.5 0 0 0 6 28.5h5.586a2.48 2.48 0 0 0 1.768-.733l15.414-15.414a2.5 2.5 0 0 0 0-3.535M11.624 22.5l8.875-8.875L21.875 15 13 23.875zM9.5 20.375 8.125 19 17 10.125l1.375 1.375zm-3 1.25 1.939 1.939 1.936 1.936H6.5zm17.5-8.75L19.125 8l2.293-2.293 4.875 4.876z'/%3e%3c/svg%3e" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image-more/3.4.0/dom-to-image-more.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
 
         /* Estética Clássica - Tipografia e Proporções 
@@ -1013,68 +1014,120 @@ _δὲ_ (vrd)
         }
 
         function getFilename(ext) {
-            let nome = DOM.cabecalhoInput.value.replace(/<[^>]*>?/gm, '').trim();
+            let nome = DOM.cabecalhoInput.value.replace(/<[^>]*>/gm, '').trim();
             if (!nome) nome = 'gráfico';
             nome = nome.replace(/[\\/:*?"<>|]/g, '-').substring(0, 80);
-            return `${nome}.${ext}`;
+
+            const agora = new Date();
+            const dia = String(agora.getDate()).padStart(2, '0');
+            const hora = String(agora.getHours()).padStart(2, '0');
+            const minuto = String(agora.getMinutes()).padStart(2, '0');
+
+            return `${nome}_${dia}_${hora}h${minuto}.${ext}`;
         }
 
-        window.exportChart = function(format, bgColor) {
+       window.exportChart = async function(format, bgColor) {
             DOM.exportMenu.style.display = 'none';
 
+            const target = DOM.exportTarget;
             const scale = window.devicePixelRatio * 2 || 2;
-            const targetNode = DOM.exportTarget;
-            const width  = targetNode.scrollWidth;
-            const height = targetNode.scrollHeight;
 
-            const opts = {
-                width,
-                height,
-                style: {
-                    transform: `scale(${scale})`,
-                    transformOrigin: 'top left',
-                    width:  width  + 'px',
-                    height: height + 'px',
-                },
-            };
+            // 1. Garante que as linhas SVG estão actualizadas (sem mexer no layout)
+            desenharTodasAsLinhas();
 
-            // Para fundo transparente, não injeta backgroundColor
-            if (bgColor !== null) opts.bgcolor = bgColor;
+            // 2. Calcula os limites REAIS de todo o conteúdo (incluindo nós que excedem o target)
+            const todosOsElementos = target.querySelectorAll('*');
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-            const isJpg = format === 'jpg';
-            const fn = isJpg ? domtoimage.toJpeg : domtoimage.toPng;
+            todosOsElementos.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 && rect.height === 0) return; // ignora invisíveis
+                minX = Math.min(minX, rect.left);
+                minY = Math.min(minY, rect.top);
+                maxX = Math.max(maxX, rect.right);
+                maxY = Math.max(maxY, rect.bottom);
+            });
 
-            // Cria um canvas maior manualmente para aplicar o scale
-            const wrappedOpts = {
-                width:  width  * scale,
-                height: height * scale,
-                style: {
-                    transform: `scale(${scale})`,
-                    transformOrigin: 'top left',
-                    width:  width  + 'px',
-                    height: height + 'px',
-                },
-            };
-            if (bgColor !== null) wrappedOpts.bgcolor = bgColor;
+            // Margem de segurança
+            const margin = 20;
+            minX -= margin;
+            minY -= margin;
+            maxX += margin;
+            maxY += margin;
 
-            fn(targetNode, wrappedOpts)
-                .then(dataUrl => {
-                    const link = document.createElement('a');
-                    link.download = getFilename(format);
-                    link.href = dataUrl;
-                    link.click();
-                })
-                .catch(err => {
-                    console.error("Erro na exportação:", err);
-                    alert("Erro ao exportar. Verifique o console.");
-                });
+            const totalWidth = maxX - minX;
+            const totalHeight = maxY - minY;
+
+            // 3. Cria um clone do target, reposicionado para capturar apenas a área desejada
+            //    sem afetar o layout original.
+            const originalDisplay = target.style.display;
+            const cloneContainer = document.createElement('div');
+            cloneContainer.style.position = 'fixed';
+            cloneContainer.style.left = `${-minX}px`;
+            cloneContainer.style.top = `${-minY}px`;
+            cloneContainer.style.width = `${totalWidth}px`;
+            cloneContainer.style.height = `${totalHeight}px`;
+            cloneContainer.style.overflow = 'visible';
+            cloneContainer.style.zIndex = '-9999';
+            cloneContainer.style.pointerEvents = 'none';
+            cloneContainer.style.background = 'transparent';
+
+            // Move o target para dentro do clone (preserva o original restaurado depois)
+            const parentOriginal = target.parentNode;
+            const nextSibling = target.nextSibling;
+            cloneContainer.appendChild(target);
+            document.body.appendChild(cloneContainer);
+
+            try {
+                // 4. Renderiza com html2canvas
+                const options = {
+                    scale: scale,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: bgColor || null,
+                    width: totalWidth,
+                    height: totalHeight,
+                    windowWidth: totalWidth,
+                    windowHeight: totalHeight,
+                };
+
+                const canvas = await html2canvas(target, options);
+
+                // 5. Converte para o formato desejado
+                const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+                const dataUrl = canvas.toDataURL(mimeType, 0.95);
+
+                // 6. Dispara o download
+                const link = document.createElement('a');
+                link.download = getFilename(format);
+                link.href = dataUrl;
+                link.click();
+            } catch (err) {
+                console.error("Erro na exportação:", err);
+                alert("Erro ao exportar. Verifique o console.");
+            } finally {
+                // Restaura o target ao local original
+                if (parentOriginal) {
+                    if (nextSibling) {
+                        parentOriginal.insertBefore(target, nextSibling);
+                    } else {
+                        parentOriginal.appendChild(target);
+                    }
+                }
+                // Remove o clone
+                document.body.removeChild(cloneContainer);
+                // Garante que o display original seja restaurado
+                target.style.display = originalDisplay;
+                // Redesenha as linhas caso algo tenha mudado (não deve)
+                desenharTodasAsLinhas();
+            }
         };
 
-        window.exportarComTemas = function() {
+        window.exportarComTemas = async function() {
             const bodyStyle = getComputedStyle(document.body);
             const bgColor = bodyStyle.backgroundColor;
             DOM.exportMenu.style.display = 'none';
-            exportChart('png', bgColor);
+            await exportChart('png', bgColor);
         };
 
         let tempoEspera;
