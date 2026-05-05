@@ -1026,103 +1026,74 @@ _δὲ_ (vrd)
             return `${nome}_${dia}_${hora}h${minuto}.${ext}`;
         }
 
-       window.exportChart = async function(format, bgColor) {
-            DOM.exportMenu.style.display = 'none';
+        window.exportChart = async function(format, bgColor) {
+   			DOM.exportMenu.style.display = 'none';
 
-            const target = DOM.exportTarget;
-            const scale = window.devicePixelRatio * 2 || 2;
+   			// Garante que as linhas SVG estejam actualizadas
+   			desenharTodasAsLinhas();
 
-            // 1. Garante que as linhas SVG estão actualizadas (sem mexer no layout)
-            desenharTodasAsLinhas();
+   			const target = DOM.exportTarget;
+   			const targetRect = target.getBoundingClientRect();
 
-            // 2. Calcula os limites REAIS de todo o conteúdo (incluindo nós que excedem o target)
-            const todosOsElementos = target.querySelectorAll('*');
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+   			// Seleciona os elementos que realmente contêm o conteúdo da árvore
+   			const elementosVisiveis = target.querySelectorAll('.node, .box-wrapper, #cabecalho-display');
+    
+   			if (elementosVisiveis.length === 0) {
+       		console.warn("Nenhum conteúdo visível para exportar.");
+       		return;
+  			}
 
-            todosOsElementos.forEach(el => {
-                const rect = el.getBoundingClientRect();
-                if (rect.width === 0 && rect.height === 0) return; // ignora invisíveis
-                minX = Math.min(minX, rect.left);
-                minY = Math.min(minY, rect.top);
-                maxX = Math.max(maxX, rect.right);
-                maxY = Math.max(maxY, rect.bottom);
-            });
+   			// Calcula os limites reais
+   			let minX = Infinity, minY = Infinity;
+   			let maxX = -Infinity, maxY = -Infinity;
 
-            // Margem de segurança
-            const margin = 20;
-            minX -= margin;
-            minY -= margin;
-            maxX += margin;
-            maxY += margin;
+   			elementosVisiveis.forEach(el => {
+      		const rect = el.getBoundingClientRect();
+       		if (rect.width === 0 && rect.height === 0) return;
+       		minX = Math.min(minX, rect.left);
+       		minY = Math.min(minY, rect.top);
+       		maxX = Math.max(maxX, rect.right);
+       		maxY = Math.max(maxY, rect.bottom);
+   			});
 
-            const totalWidth = maxX - minX;
-            const totalHeight = maxY - minY;
+  		 // Margens: 20px geral + 60px extra à direita e em baixo para linhas que saem das curvas
+   		const margem = 20;
+   		const extraLinhas = 60;
+    const left = Math.max(minX - margem, targetRect.left);
+    const top = Math.max(minY - margem, targetRect.top);
+    const width = (maxX - minX) + 2 * margem + extraLinhas;
+    const height = (maxY - minY) + 2 * margem + extraLinhas;
 
-            // 3. Cria um clone do target, reposicionado para capturar apenas a área desejada
-            //    sem afetar o layout original.
-            const originalDisplay = target.style.display;
-            const cloneContainer = document.createElement('div');
-            cloneContainer.style.position = 'fixed';
-            cloneContainer.style.left = `${-minX}px`;
-            cloneContainer.style.top = `${-minY}px`;
-            cloneContainer.style.width = `${totalWidth}px`;
-            cloneContainer.style.height = `${totalHeight}px`;
-            cloneContainer.style.overflow = 'visible';
-            cloneContainer.style.zIndex = '-9999';
-            cloneContainer.style.pointerEvents = 'none';
-            cloneContainer.style.background = 'transparent';
+    // Coordenadas relativas ao canto superior esquerdo do target
+    const x = left - targetRect.left;
+    const y = top - targetRect.top;
 
-            // Move o target para dentro do clone (preserva o original restaurado depois)
-            const parentOriginal = target.parentNode;
-            const nextSibling = target.nextSibling;
-            cloneContainer.appendChild(target);
-            document.body.appendChild(cloneContainer);
+    try {
+        const canvas = await html2canvas(target, {
+            scale: window.devicePixelRatio * 2 || 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: bgColor || null,
+            x: x,
+            y: y,
+            width: width,
+            height: height
+        });
 
-            try {
-                // 4. Renderiza com html2canvas
-                const options = {
-                    scale: scale,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: bgColor || null,
-                    width: totalWidth,
-                    height: totalHeight,
-                    windowWidth: totalWidth,
-                    windowHeight: totalHeight,
-                };
+        // Gera a imagem e faz o download
+        const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+        const dataUrl = canvas.toDataURL(mimeType, 0.95);
 
-                const canvas = await html2canvas(target, options);
-
-                // 5. Converte para o formato desejado
-                const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-                const dataUrl = canvas.toDataURL(mimeType, 0.95);
-
-                // 6. Dispara o download
-                const link = document.createElement('a');
-                link.download = getFilename(format);
-                link.href = dataUrl;
-                link.click();
-            } catch (err) {
-                console.error("Erro na exportação:", err);
-                alert("Erro ao exportar. Verifique o console.");
-            } finally {
-                // Restaura o target ao local original
-                if (parentOriginal) {
-                    if (nextSibling) {
-                        parentOriginal.insertBefore(target, nextSibling);
-                    } else {
-                        parentOriginal.appendChild(target);
-                    }
-                }
-                // Remove o clone
-                document.body.removeChild(cloneContainer);
-                // Garante que o display original seja restaurado
-                target.style.display = originalDisplay;
-                // Redesenha as linhas caso algo tenha mudado (não deve)
-                desenharTodasAsLinhas();
-            }
-        };
-
+        const link = document.createElement('a');
+        link.download = getFilename(format);
+        link.href = dataUrl;
+        link.click();
+    } catch (err) {
+        console.error("Erro na exportação:", err);
+        alert("Erro ao exportar. Verifique o console.");
+    }
+};
+        
         window.exportarComTemas = async function() {
             const bodyStyle = getComputedStyle(document.body);
             const bgColor = bodyStyle.backgroundColor;
