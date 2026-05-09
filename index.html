@@ -372,15 +372,16 @@
             <div class="syntax-section">
                 <p><span class="hl">3. Cores:</span></p>
                 <p><b>Nativas:</b> <code>(vrm)</code>, <code>(ama)</code>, <code>(azu)</code>, <code>(cia)</code>, <code>(rox)</code>, <code>(ros)</code>, <code>(vrd)</code>, <code>(brc)</code>, <code>(mar)</code></p>
-                <p><b>Dinâmicas:</b> <code>//cor:#HEX (sigla)</code> <code>"use #000000 como template!"</code></p>
+                <p><b>Dinâmicas:</b> <code>//cor:#HEX (sigla)</code> use #000000 como template e clique duas vezes no hex para abrir o painel de seleção!</p>
             </div>
 
             <div class="syntax-section">
                 <p><span class="hl">4. Conexões Lógicas:</span></p>
                 <p><code>(#id)</code> Cria uma âncora invisível</p>
-                <p><code>(->id:cor)</code> Curva | <code>(-id:cor)</code> Curva simples</p>
-                <p><code>[->id:cor]</code> Reta (Ortogonal)</p>
-                <p><code>&lt;->id:cor&gt;</code> Reta direta</p>
+                <p><code>(->id:cor)</code> Curva com seta contínua | <code>(~>id:cor)</code> Curva com seta tracejada</p>
+                <p><code>(-id:cor)</code> Curva sem seta contínua | <code>(~id:cor)</code> Curva sem seta tracejada</p>
+                <p><code>[->id:cor]</code> Reta ortogonal contínua | <code>[~>id:cor]</code> Reta ortogonal tracejada</p>
+                <p><code>&lt;->id:cor&gt;</code> Reta direta contínua | <code>&lt;~>id:cor&gt;</code> Reta direta tracejada</p>
             </div>
             
             <div class="syntax-section">
@@ -414,7 +415,7 @@ _δὲ_ (vrd)
 ---- ὡς (rox)
 ---- ἐβουλεύσατο (vrm)
 ===== (cia) [Σωκράτης] (ama) [->soc:terracota]
------ περί (ama) <-apo:vrm>
+----- περί (ama) <~apo:vrm>
 ----- ἀπολογίας (ama) (#apo)
 ====== τῆς (azu)
 ===== (cia) τε... καὶ (ros)
@@ -426,7 +427,7 @@ _δὲ_ (vrd)
 ----- [CI]{box-brc}
 ------ ἐπειδὴ (rox)
 ------ ἐκλήθη (vrm)
-======= (cia) Σωκράτης (ama) (-soc:rox)
+======= (cia) Σωκράτης (ama) (~soc:rox)
 ======= (cia) εἰς δίκην (ama)
 ======== (cia) τὴν (azu)
 = (cia) μοι (ama)
@@ -571,17 +572,15 @@ _δὲ_ (vrd)
                     return; 
                 }
 
-                const spaceLegacy =linha.match(/^\/\/espaçamento:\s*([+-]?\d+)/i);
+                const spaceLegacy = linha.match(/^\/\/espaçamento:\s*([+-]?\d+)/i);
                 if (spaceLegacy) {
                     espacamentoX = Math.max(0, 10 + parseInt(spaceLegacy[1], 10));
                     return;
                 }
 
-                // Nova diretiva para título (não vai para a árvore)
                 const tituloMatch = linha.match(/^\/\/título:\s*(.*)$/i);
                 if (tituloMatch) {
-                    // Não faz nada aqui, o título é tratado na importação/exportação
-                    return;
+                    return; // não adiciona à árvore, título é tratado na importação/exportação
                 }
 
                 if (linha.trim() !== '') linhasLimpas.push(linha);
@@ -595,27 +594,35 @@ _δὲ_ (vrd)
 
         function processarMarcacoesLexicas(texto) {
             let html = texto;
+            // Remove âncoras de id (#id) do texto visível
             html = html.replace(/\(#(\w+)\)/g, '');
             
-            html = html.replace(/([(\[<])(->|-)(\w+)(?::(\w+))?([)\]>])/g, (match, openBracket, type, target, color, closeBracket) => {
+            html = html.replace(/([(\[<])(->|~>|-|~)(\w+)(?::(\w+))?([)\]>])/g, function(match, openBracket, type, target, color, closeBracket) {
+                // Valida que os brackets são do mesmo tipo
                 if ((openBracket === '(' && closeBracket !== ')') ||
                     (openBracket === '[' && closeBracket !== ']') ||
                     (openBracket === '<' && closeBracket !== '>')) { 
                     return match; 
                 }
                 
-                const rType = type === '->' ? 'arrow' : 'line';
+                // Determina se é seta ou linha simples
+                const isArrow = type.includes('>');   // -> ou ~>
+                const isDashed = type.startsWith('~'); // ~> ou ~
+                const rType = isArrow ? 'arrow' : 'line';
                 const rTarget = `node-${target}`;
-                const rColor = color || 'ama'; 
+                const rColor = color || 'ama'; // cor padrão amarela se omitida
+                const rDashed = isDashed ? 'true' : 'false';
                 
+                // Estilo da linha: curve, orthogonal ou straight
                 let rStyle = 'curve';
                 if (openBracket === '[') rStyle = 'orthogonal';
                 if (openBracket === '<') rStyle = 'straight';
 
-                return `<span class="ref-anchor" data-ref-target="${rTarget}" data-ref-type="${rType}" data-ref-color="${rColor}" data-ref-style="${rStyle}" style="display:none;"></span>`;
+                return `<span class="ref-anchor" data-ref-target="${rTarget}" data-ref-type="${rType}" data-ref-color="${rColor}" data-ref-style="${rStyle}" data-ref-dashed="${rDashed}" style="display:none;"></span>`;
             });
 
-            html = html.replace(/(.*?)\(([\w]+)\)/g, (match, p1, p2) => {
+            // Processamento de cores nativas e dinâmicas no texto
+            html = html.replace(/(.*?)\(([\w]+)\)/g, function(match, p1, p2) {
                 let cat = p2.toLowerCase();
                 const nativeCats = ['vrm', 'ama', 'azu', 'cia', 'rox', 'vrd', 'ros', 'brc', 'mar'];
                 
@@ -652,8 +659,6 @@ _δὲ_ (vrd)
                 let caractereLinha = linhaMatch ? linhaMatch[1][0] : '-';
                 
                 let corLinhaBruta = linhaMatch && linhaMatch[2] ? linhaMatch[2].toLowerCase() : 'line-default';
-                if (corLinhaBruta === 'vrm') corLinhaBruta = 'vrm';
-                if (corLinhaBruta === 'vrd') corLinhaBruta = 'vrd';
                 
                 let conteudoBruto = linha;
                 if (linhaMatch) {
@@ -661,10 +666,12 @@ _δὲ_ (vrd)
                     conteudoBruto = linha.replace(linhaPrefixRegex, '').trim();
                 }
 
+                // Extrai id 
                 let idCustomizadoMatch = conteudoBruto.match(/\(#(\w+)\)/);
                 let idFinal = idCustomizadoMatch ? `node-${idCustomizadoMatch[1]}` : 't-node-' + (contadorNos++);
 
-                let textoParaCaixa = conteudoBruto.replace(/\s*\(\s*(?:->|-|#)[^\)]+\s*\)\s*/g, '').trim();
+                // Remove âncoras de conexão para o texto do nó
+                let textoParaCaixa = conteudoBruto.replace(/\s*\(\s*(?:->|~>|-|~|#)[^\)]+\s*\)\s*/g, '').trim();
                 let ehCaixaConteiner = false, ehCaixaSimples = false;
                 let tituloCaixa = '', tipoCaixa = '', posicaoCaixa = 'cima';
 
@@ -698,7 +705,8 @@ _δὲ_ (vrd)
             return raiz;
         }
 
-        /* SEÇÃO 4: A RENDERIZAÇÃO DA ÁRVORE :D
+        /*
+        SEÇÃO 4: A RENDERIZAÇÃO DA ÁRVORE :D
         */
 
         function extrairAncorasApenas(htmlProcessado) {
@@ -713,7 +721,6 @@ _δὲ_ (vrd)
             
             let ehPontilhado = noh.tipoCaixa && noh.tipoCaixa.includes('box~');
             let classeCaixa = noh.tipoCaixa ? noh.tipoCaixa.replace('box~', 'box-') : '';
-            
             
             let tipoBase = classeCaixa ? classeCaixa.replace('box-', '').toLowerCase() : '';
             let estiloCustomizado = '';
@@ -743,7 +750,7 @@ _δὲ_ (vrd)
                 html += renderizarFilhos(noh);
                 
             } else {
-                // Nó normal: sem caixa. 
+                // Nó normal: sem caixa.
                 html += `<div class="node" id="content-${noh.id}">${processado.content}</div>`;
                 html += renderizarFilhos(noh);
             }
@@ -809,6 +816,7 @@ _δὲ_ (vrd)
             });
             svg.innerHTML = `<defs>${defsHTML}</defs>`;
 
+            // Desenha as linhas da árvore (hierarquia)
             function percorrerEDesenharArvore(noh) {
                 const filhosVisiveis = noh.filhos.filter(c => c.caractereLinha === '=' || c.caractereLinha === '~');
                 
@@ -880,9 +888,8 @@ _δὲ_ (vrd)
 
             percorrerEDesenharArvore(window.arvoreAtual);
 
-            // --- Desenha as conexões (âncoras) com offset para evitar sobreposição ---
+            // --- Desenha as conexões lógicas (âncoras) ---
             const refsArray = Array.from(refs);
-            // Agrupa por elemento de origem (o nó que contém a âncora)
             const gruposPorOrigem = new Map();
             refsArray.forEach(anchor => {
                 const source = anchor.closest('.node') || anchor.closest('.box-wrapper');
@@ -896,8 +903,7 @@ _δὲ_ (vrd)
                 const source = document.getElementById(sourceId);
                 if (!source) return;
 
-                // Calcula offset incremental para cada conexão saindo da mesma origem
-                const offsetStep = 8; // pixels de deslocamento entre linhas paralelas
+                const offsetStep = 8;
                 let offsetIndex = 0;
 
                 anchors.forEach(anchor => {
@@ -918,11 +924,11 @@ _δὲ_ (vrd)
                     const rStyle = anchor.getAttribute('data-ref-style') || 'curve';
                     const rType = anchor.getAttribute('data-ref-type');
                     const rColor = anchor.getAttribute('data-ref-color');
+                    const rDashed = anchor.getAttribute('data-ref-dashed') === 'true';
                     const strokeColor = DicionarioCores[rColor] || EstadoSintatico.coresDinamicas[rColor] || '#f1c40f';
 
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                     
-                    // Aplica um pequeno offset horizontal baseado no índice da âncora
                     const offset = (offsetIndex - (anchors.length-1)/2) * offsetStep;
                     offsetIndex++;
 
@@ -937,10 +943,9 @@ _δὲ_ (vrd)
                         
                         let startX = x1 < x2 ? x1Right : x1Left;
                         let endX = x1 < x2 ? x2Left : x2Right;
-                        // Offset vertical para retas horizontais
                         path.setAttribute("d", `M ${startX} ${y1Center + offset} L ${endX} ${y2Center + offset}`);
                     } else {
-                        // Curva padrão com offset no controle
+                        // Curva padrão
                         const curveY = Math.max(y1, y2Bottom) + 20 + Math.abs(offset) * 0.5;
                         const midX = (x1 + x2) / 2;
                         path.setAttribute("d", `M ${x1 + offset} ${y1} Q ${midX + offset} ${curveY} ${x2 + offset} ${y2Bottom}`);
@@ -950,9 +955,9 @@ _δὲ_ (vrd)
                     path.setAttribute("stroke-width", "1.5");
                     path.setAttribute("fill", "transparent");
                     
-                    // Linhas de referência são sempre tracejadas? Seguindo o comportamento original: se for 'line' ou curva sem arrow, pode ser tracejada
-                    if (rStyle !== 'straight' || rType === 'line') {
-                         path.setAttribute("stroke-dasharray", "4,4");
+                    // Aplica tracejado apenas se for uma conexão com til (~)
+                    if (rDashed) {
+                        path.setAttribute("stroke-dasharray", "4,4");
                     }
 
                     if (rType === 'arrow') {
@@ -964,33 +969,27 @@ _δὲ_ (vrd)
         }
 
         function aplicarQuebraDeBox() {
-            // Procuram os núcleos dos nós
+            // Procura os núcleos dos nós
             const todosOsNodes = document.querySelectorAll('.node');
             
             todosOsNodes.forEach(divNode => {
-                // Usa textContent para evitar ler o HTML dos nós-pai
                 if (divNode.textContent.includes('/qbbox')) {
                     divNode.innerHTML = divNode.innerHTML.replace('/qbbox', '').trim();
                     
-                    // Encontra o <li> específico que segura este nó
                     let nohLi = divNode.closest('li');
-                    
-                    // Achar a caixa do nó
                     let paiCaixa = nohLi.closest('.box-wrapper');
-                    
+                    // acha a caixa do nó
                     if (paiCaixa) {
                         let ulInterna = nohLi.parentNode; 
                         ulInterna.removeChild(nohLi);
 
                         let liAncestral = paiCaixa.parentNode;
-
                         let ulExterna = liAncestral.querySelector(':scope > ul');
                         if (!ulExterna) {
                             ulExterna = document.createElement('ul');
                             liAncestral.appendChild(ulExterna);
                         }
-                        
-                        // 8. Coloca o nṕ na hierarquia correta
+                        // Coloca o nó na hierarquia correta
                         ulExterna.appendChild(nohLi);
                     }
                 }
@@ -1032,72 +1031,65 @@ _δὲ_ (vrd)
         }
 
         window.exportChart = async function(format, bgColor) {
-   			DOM.exportMenu.style.display = 'none';
+            DOM.exportMenu.style.display = 'none';
+            desenharTodasAsLinhas();
 
-   			// Garante que as linhas SVG estejam actualizadas
-   			desenharTodasAsLinhas();
+            const target = DOM.exportTarget;
+            const targetRect = target.getBoundingClientRect();
 
-   			const target = DOM.exportTarget;
-   			const targetRect = target.getBoundingClientRect();
-
-   			// Seleciona os elementos que realmente contêm o conteúdo da árvore
-   			const elementosVisiveis = target.querySelectorAll('.node, .box-wrapper, #cabecalho-display');
+            const elementosVisiveis = target.querySelectorAll('.node, .box-wrapper, #cabecalho-display');
     
-   			if (elementosVisiveis.length === 0) {
-       		console.warn("Nenhum conteúdo visível para exportar.");
-       		return;
-  			}
+            if (elementosVisiveis.length === 0) {
+                console.warn("Nenhum conteúdo visível para exportar.");
+                return;
+            }
 
-   			// Calcula os limites reais
-   			let minX = Infinity, minY = Infinity;
-   			let maxX = -Infinity, maxY = -Infinity;
+            let minX = Infinity, minY = Infinity;
+            let maxX = -Infinity, maxY = -Infinity;
 
-   			elementosVisiveis.forEach(el => {
-      		const rect = el.getBoundingClientRect();
-       		if (rect.width === 0 && rect.height === 0) return;
-       		minX = Math.min(minX, rect.left);
-       		minY = Math.min(minY, rect.top);
-       		maxX = Math.max(maxX, rect.right);
-       		maxY = Math.max(maxY, rect.bottom);
-   			});
+            elementosVisiveis.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 && rect.height === 0) return;
+                minX = Math.min(minX, rect.left);
+                minY = Math.min(minY, rect.top);
+                maxX = Math.max(maxX, rect.right);
+                maxY = Math.max(maxY, rect.bottom);
+            });
 
-  		 // Margens: 20px geral + 60px extra à direita e em baixo para linhas que saem das curvas
-   		const margem = 20;
-   		const extraLinhas = 60;
-    const left = Math.max(minX - margem, targetRect.left);
-    const top = Math.max(minY - margem, targetRect.top);
-    const width = (maxX - minX) + 2 * margem + extraLinhas;
-    const height = (maxY - minY) + 2 * margem + extraLinhas;
+            const margem = 20;
+            const extraLinhas = 60;
+            const left = Math.max(minX - margem, targetRect.left);
+            const top = Math.max(minY - margem, targetRect.top);
+            const width = (maxX - minX) + 2 * margem + extraLinhas;
+            const height = (maxY - minY) + 2 * margem + extraLinhas;
 
-    // Coordenadas relativas ao canto superior esquerdo do target
-    const x = left - targetRect.left;
-    const y = top - targetRect.top;
+            const x = left - targetRect.left;
+            const y = top - targetRect.top;
 
-    try {
-        const canvas = await html2canvas(target, {
-            scale: window.devicePixelRatio * 2 || 2,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: bgColor || null,
-            x: x,
-            y: y,
-            width: width,
-            height: height
-        });
+            try {
+                const canvas = await html2canvas(target, {
+                    scale: window.devicePixelRatio * 2 || 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: bgColor || null,
+                    x: x,
+                    y: y,
+                    width: width,
+                    height: height
+                });
 
-        // Gera a imagem e faz o download
-        const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-        const dataUrl = canvas.toDataURL(mimeType, 0.95);
+                const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+                const dataUrl = canvas.toDataURL(mimeType, 0.95);
 
-        const link = document.createElement('a');
-        link.download = getFilename(format);
-        link.href = dataUrl;
-        link.click();
-    } catch (err) {
-        console.error("Erro na exportação:", err);
-        alert("Erro ao exportar. Verifique o console.");
-    }
-};
+                const link = document.createElement('a');
+                link.download = getFilename(format);
+                link.href = dataUrl;
+                link.click();
+            } catch (err) {
+                console.error("Erro na exportação:", err);
+                alert("Erro ao exportar. Verifique o console.");
+            }
+        };
         
         window.exportarComTemas = async function() {
             const bodyStyle = getComputedStyle(document.body);
@@ -1119,21 +1111,16 @@ _δὲ_ (vrd)
         };
         window.addEventListener('resize', desenharTodasAsLinhas);
 
-
-        // --- Lida com a exportação e importação do arquivo TXT ---
-
         window.exportarPapiro = function() {
             let textoArvore = DOM.textarea.value;
             let titulo = DOM.cabecalhoInput.value.trim();
             
-            // Se o título não estiver vazio, adiciona no início
             let conteudoFinal = '';
             if (titulo !== '') {
                 conteudoFinal += `//título: ${titulo}\n`;
             }
             conteudoFinal += textoArvore;
             
-            // Se tudo estiver em branco, avisa e cancela
             if (conteudoFinal.trim() === '') {
                 alert("O arquivo está em branco. Escreva algo antes de salvar.");
                 return;
@@ -1142,30 +1129,23 @@ _δὲ_ (vrd)
             let blob = new Blob([conteudoFinal], { type: 'text/plain' });
             let link = document.createElement('a');
             
-            // Pega a data de hoje para colocar no nome e não sobrescrever arquivos antigos
             let hoje = new Date();
             let dia = hoje.getDate();
             let hora = hoje.getHours();
             let minuto = hoje.getMinutes();
             
-            // Pega o nome do cabeçalho da árvore
             let nomeBase = getFilename('txt').replace('.txt', '');
-            
-            // Junta tudo de um jeito simples, sem fórmulas complexas
             let nomeFinal = nomeBase + "_" + dia + "_" + hora + "h" + minuto + ".txt";
             
             link.download = nomeFinal;
             link.href = URL.createObjectURL(blob);
             link.click();
-            
-            // Limpa da memória
             URL.revokeObjectURL(link.href);
         };
 
         window.importarPapiro = function(evento) {
             let arquivo = evento.target.files[0];
             
-            // Se o usuário fechou a janela sem escolher nenhum arquivo, a função apenas para por aqui
             if (!arquivo) {
                 return;
             }
@@ -1178,7 +1158,6 @@ _δὲ_ (vrd)
                 let tituloEncontrado = '';
                 let resto = [];
                 
-                // Procur por //título:
                 for (let linha of linhas) {
                     let match = linha.match(/^\/\/título:\s*(.*)$/i);
                     if (match) {
@@ -1188,19 +1167,14 @@ _δὲ_ (vrd)
                     }
                 }
                 
-                // Atualiza o campo de título
                 if (tituloEncontrado) {
                     DOM.cabecalhoInput.value = tituloEncontrado;
-                } else {
-                    // Se não tiver, mantém o título atual (ou poderia limpar, pensar!)
                 }
-                
+                // Se não tiver, mantém o título atual (ou poderia limpar, pensar!)
                 // O resto vai para a textarea (código da árvore)
                 DOM.textarea.value = resto.join('\n');
-                
                 renderizarArvore();
-                
-                // Zera o input invisível para deixar você carregar o mesmo arquivo de novo depois, se precisar
+                // // Zera o input invisível para deixar você carregar o mesmo arquivo de novo depois, se precisar
                 evento.target.value = '';
             };
             
